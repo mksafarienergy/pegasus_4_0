@@ -1,12 +1,11 @@
-import pandas as pd
-import requests
 import json
-import warnings
 import time
-
-from datetime import datetime
-from dateutil import rrule
+import warnings
 from math import floor
+from dateutil import rrule
+from datetime import datetime
+
+import pandas as pd
 
 from dynamics_auth import create_session, use_session
 
@@ -329,16 +328,15 @@ def proforma_monthly_dataframe():
     end = time.time()
     now = datetime.now()
     now = now.strftime("%Y-%m-%d_%H-%M-%S")
-    combined_asset_proforma.to_csv(f"combined_asset_proforma_{now}.csv")
+    combined_asset_proforma.to_csv(f"csvs/combined_asset_proforma_{now}.csv")
     print(f"get_combined_asset_proforma(asset_dataframe, proforma_dataframe) took: {end - start}")
 
-    
     start = time.time()
     asset_proforma_monthly_basis = get_asset_proforma_monthly_basis(combined_asset_proforma)
     end = time.time()
     now = datetime.now()
     now = now.strftime("%Y-%m-%d_%H-%M-%S")
-    asset_proforma_monthly_basis.to_csv(f"asset_proforma_monthly_basis_{now}.csv")
+    asset_proforma_monthly_basis.to_csv(f"csvs/asset_proforma_monthly_basis_{now}.csv")
     print(f"get_asset_proforma_monthly_basis(combined_asset_proforma) took: {end - start}")
 
     return asset_proforma_monthly_basis
@@ -354,4 +352,4 @@ if __name__ == '__main__':
 
     now = datetime.now()
     now = now.strftime("%Y-%m-%d_%H-%M-%S")
-    df_unique_asset.to_csv(f"df_unique_asset_{now}.csv")
+    df_unique_asset.to_csv(f"csvs/df_unique_asset_{now}.csv")

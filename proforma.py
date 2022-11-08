@@ -7,7 +7,8 @@ from datetime import datetime
 
 import pandas as pd
 
-from dynamics_auth import create_session, use_session
+from authentication.dynamics_auth import create_session, use_session
+from utils import get_time_now
 
 warnings.filterwarnings("ignore")
 pd.set_option('display.max_rows', 500)
@@ -22,30 +23,42 @@ month_insolation_list = ['jan_inso', 'feb_inso', 'mar_inso', 'apr_inso', 'may_in
 month_name_list = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 
-def get_asset_dataframe(session):
-    r_assets = use_session(session, API_URL+'msdyn_customerassets?$select=msdyn_name,cre90_projectnumber,cre90_monitoringplatform,\
+def get_assets(session) -> pd.DataFrame:
+    """
+    Getting data from the asset table in Dynamics. Cleaning up the data slightly to 
+        remove uneccessary information and formatting it.
+
+    :param session: session for the connection to the Dynamics API
+    :return: DataFrame with asset information and another DataFrame with same data
+    """
+
+    res = use_session(session, API_URL+'msdyn_customerassets?$select=msdyn_name,cre90_projectnumber,cre90_monitoringplatform,\
                                    cre90_monitoringplatformid,msdyn_customerassetid,cre90_availableinpegasus,cre90_opportunityaddress,cre90_timezone')
-    assets_json = r_assets.content.decode('utf-8')
-    assets_data = json.loads(assets_json)
-    df_assets = pd.DataFrame(assets_data['value']).drop(['@odata.etag'], axis=1)
+    res_json = res.content.decode('utf-8')
+    asset_data = json.loads(res_json)
+    df_assets = pd.DataFrame(asset_data['value']).drop(['@odata.etag'], axis=1)
     df_assets = df_assets[df_assets['cre90_availableinpegasus'] == True]
     df_assets = df_assets.rename(columns={'msdyn_name': 'asset_name',
                                           'cre90_projectnumber': 'project_id',
                                           'cre90_monitoringplatform': 'monitoring_platform',
-                                          'cre90_monitoringplatformid': 'monitoring_id',
+                                          'cre90_monitoringplatformid': 'site_id',
                                           'msdyn_customerassetid': 'asset_id',
                                           'cre90_opportunityaddress': 'address',
                                           'cre90_timezone': 'time_zone'})
-    #Replace Monitoring ID
+
+    # Replace Monitoring ID     <- wow, so helpful, thank you 
     df_assets = df_assets.astype({'monitoring_platform':str})
-    df_assets['monitoring_platform'].replace({'662730001.0':'Locus','662730002.0':'PowerTrack'},inplace = True)
-    # drop None valued rows
-    df_assets_with_monitoring_id = df_assets.dropna(subset=df_assets.columns.difference(['address']), how='all')
-    df_assets_with_monitoring_id = df_assets_with_monitoring_id.reset_index(drop=True)
-    return df_assets, df_assets_with_monitoring_id
+    df_assets['monitoring_platform'].replace({'662730001.0': 'Locus','662730002.0': 'PowerTrack'}, inplace = True)
+
+    # Drop None valued rows     <- Dumbass comment, explains nothing
+    # Drops rows if all values in that row are None
+    df_assets_with_site_id = df_assets.dropna(subset=df_assets.columns.difference(['address']), how='all')
+    df_assets_with_site_id = df_assets_with_site_id.reset_index(drop=True)
+
+    return df_assets, df_assets_with_site_id
 
 
-def conditions_for_field_name(proforma_df):
+def get_field_names(proforma_df):
     if proforma_df['received_exception']:
         return 'KWHrec'
     elif proforma_df['net_exception']:
@@ -54,9 +67,17 @@ def conditions_for_field_name(proforma_df):
         return 'KWHdel'
 
 
-def get_proforma_dataframe(session, df_assets):
-    #Request Asset Pro Forma Data
-    r_pro = use_session(session, API_URL+'cre90_assetproformas?$select=\
+def get_proformas(session, df_assets: pd.DataFrame) -> pd.DataFrame:
+    """
+    Getting data from the asset table in Dynamics. Cleaning up the data slightly to 
+        remove uneccessary information and formatting it.
+
+    :param session: session for the connection to the Dynamics API
+    :param df_assets: a dataframe with asset information
+    :return: DataFrame with asset information and another DataFrame with same data
+    """
+    
+    res = use_session(session, API_URL+'cre90_assetproformas?$select=\
                                 cre90_name,\
                                 cre90_apistartdate,\
                                 _cre90_asset_value,\
@@ -88,10 +109,10 @@ def get_proforma_dataframe(session, df_assets):
                                 cre90_novemberinsolation,\
                                 cre90_decemberinsolation,\
                                 _cre90_backupasset_value')
-    pro_json = r_pro.content.decode('utf-8')
-    pro_data = json.loads(pro_json)
-    df_pro = pd.DataFrame(pro_data['value']).drop(['@odata.etag'],axis=1)
-    df_pro = df_pro.rename(columns={'_cre90_asset_value': 'asset_id',
+    res_json = res.content.decode('utf-8')
+    proforma_data = json.loads(res_json)
+    df_proforma = pd.DataFrame(proforma_data['value']).drop(['@odata.etag'],axis=1)
+    df_proforma = df_proforma.rename(columns={'_cre90_asset_value': 'asset_id',
                                     'cre90_name': 'asset_name',
                                     'cre90_degradationprofile': 'degradation_profile',
                                     'cre90_apistartdate': 'api_start_date',
@@ -122,37 +143,38 @@ def get_proforma_dataframe(session, df_assets):
                                     'cre90_novemberinsolation': 'nov_inso',
                                     'cre90_decemberinsolation': 'dec_inso',
                                     '_cre90_backupasset_value': 'backup_asset_id'})
-    df_pro['field_name'] = df_pro.apply(conditions_for_field_name, axis=1)
-    df_pro = df_pro.drop(['received_exception', 'net_exception'], axis=1)
-    backup_id_list = df_pro['backup_asset_id'].tolist()
+    df_proforma['field_name'] = df_proforma.apply(get_field_names, axis=1)
+    df_proforma = df_proforma.drop(['received_exception', 'net_exception'], axis=1)
+    backup_id_list = df_proforma['backup_asset_id'].tolist()
     asset_name_list = df_assets['asset_name'].tolist()
     asset_id_list = df_assets['asset_id'].tolist()
-    monitoring_id_list = df_assets['monitoring_id'].tolist()
+    site_id_list = df_assets['site_id'].tolist()
     backup_asset_name_list = []
     backup_site_id_list = []
     for backup_id in backup_id_list:
         if backup_id and backup_id in asset_id_list:
             index = asset_id_list.index(backup_id)
             backup_asset_name_list.append(asset_name_list[index])
-            backup_site_id_list.append(monitoring_id_list[index])
+            backup_site_id_list.append(site_id_list[index])
             continue
         backup_asset_name_list.append('')
         backup_site_id_list.append('')
-    df_pro['backup_asset_name'] = backup_asset_name_list
-    df_pro['backup_site_id'] = backup_site_id_list
-    df_pro = df_pro.dropna()
-    df_pro = df_pro.reset_index(drop=True)
-    return df_pro
+    df_proforma['backup_asset_name'] = backup_asset_name_list
+    df_proforma['backup_site_id'] = backup_site_id_list
+    df_proforma = df_proforma.dropna()
+    df_proforma = df_proforma.reset_index(drop=True)
+    return df_proforma
 
 
-def get_combined_asset_proforma(df_assets_with_monitoring_id, df_pro):
-    df_final = pd.merge(df_assets_with_monitoring_id, df_pro, on='asset_id', how='inner')
+def combine_assets_and_proformas(df_assets_with_site_id, df_pro):
+    df_final = pd.merge(df_assets_with_site_id, df_pro, on='asset_id', how='inner')
     df_final = df_final.rename(columns={'asset_name_x': 'asset_name'}).drop(['asset_name_y'],axis=1)
     return df_final
 
 
-# define a function to get a cell by row and column name corresponding to the asset id
 def get_cell_by_column_name(df, asset_id, column_name):
+    """Get a cell by row and column name corresponding to the asset id"""
+
     row_value = df.loc[df['asset_id'] == asset_id, str(column_name)].iloc[0]
     return row_value
 
@@ -190,13 +212,14 @@ def get_asset_proforma_monthly_basis(df_final):
     For each asset id monthly data is provided from start month (start date month) till end month (end date month)
     To expand this on a daily basis: each row has to be repeated according to the no. of days in that month
     """
+
     new_asset_id_list = []
     asset_name_list = []
     backup_asset_id_list = []
     backup_site_id_list = []
     backup_asset_name_list = []
     monitoring_platform_list = []
-    monitoring_id_list = []
+    site_id_list = []
     field_name_list = []
     address_list = []
     month_list = []
@@ -228,7 +251,7 @@ def get_asset_proforma_monthly_basis(df_final):
         backup_site_id = get_cell_by_column_name(df_final, asset_id, 'backup_site_id')
         backup_asset_name = get_cell_by_column_name(df_final, asset_id, 'backup_asset_name')
         monitoring_platform = get_cell_by_column_name(df_final, asset_id, 'monitoring_platform')
-        monitoring_id = get_cell_by_column_name(df_final, asset_id, 'monitoring_id')
+        site_id = get_cell_by_column_name(df_final, asset_id, 'site_id')
         field_name = get_cell_by_column_name(df_final, asset_id, 'field_name')
         address = get_cell_by_column_name(df_final, asset_id, 'address')
         time_zone = get_cell_by_column_name(df_final, asset_id, 'time_zone')
@@ -257,7 +280,7 @@ def get_asset_proforma_monthly_basis(df_final):
             backup_site_id_list.append(backup_site_id)
             backup_asset_name_list.append(backup_asset_name)
             monitoring_platform_list.append(monitoring_platform)
-            monitoring_id_list.append(monitoring_id)
+            site_id_list.append(site_id)
             field_name_list.append(field_name)
             address_list.append(address)
             time_zone_list.append(time_zone)
@@ -285,7 +308,7 @@ def get_asset_proforma_monthly_basis(df_final):
                        'backup_site_id': pd.Series(backup_site_id_list),
                        'backup_asset_name': pd.Series(backup_asset_name_list),
                        'monitoring_platform': pd.Series(monitoring_platform_list),
-                       'site_id': pd.Series(monitoring_id_list),
+                       'site_id': pd.Series(site_id_list),
                        'field_name': pd.Series(field_name_list),
                        'address': pd.Series(address_list),
                        'time_zone': pd.Series(time_zone_list),
@@ -314,42 +337,35 @@ def proforma_monthly_dataframe():
     session = create_session()
     
     start = time.time()
-    full_asset_dataframe, asset_dataframe = get_asset_dataframe(session)
+    # full_asset_dataframe, asset_dataframe = get_assets(session)
+    df_assets, df_assets_with_site_id = get_assets(session)
     end = time.time()
     print(f"get_asset_dataframe(session) took: {end - start}")
-    
-    start = time.time()
-    proforma_dataframe = get_proforma_dataframe(session, full_asset_dataframe)
-    end = time.time()
-    print(f"get_proforma_dataframe(session, full_asset_dataframe) took: {end - start}")
 
     start = time.time()
-    combined_asset_proforma = get_combined_asset_proforma(asset_dataframe, proforma_dataframe)
+    proforma_dataframe = get_proformas(session, df_assets)
     end = time.time()
-    now = datetime.now()
-    now = now.strftime("%Y-%m-%d_%H-%M-%S")
-    combined_asset_proforma.to_csv(f"csvs/combined_asset_proforma_{now}.csv")
-    print(f"get_combined_asset_proforma(asset_dataframe, proforma_dataframe) took: {end - start}")
+    print(f"get_proformas(session, full_asset_dataframe) took: {end - start}")
+
+    start = time.time()
+    combined_asset_proforma = combine_assets_and_proformas(df_assets_with_site_id, proforma_dataframe)
+    end = time.time()
+    print(f"combine_assets_and_proformas(asset_dataframe, proforma_dataframe) took: {end - start}")
+    # now = get_time_now()
+    # combined_asset_proforma.to_csv(f"csvs/combined_asset_proforma_{now}.csv")
 
     start = time.time()
     asset_proforma_monthly_basis = get_asset_proforma_monthly_basis(combined_asset_proforma)
+    asset_proforma_monthly_basis['monitoring_platform'].replace({'662730001.0': 'Locus', '662730002.0': 'PowerTrack'}, inplace=True)
+    # maintain dataframe for unique assets
+    asset_proforma_monthly_basis = asset_proforma_monthly_basis.drop_duplicates('asset_id', keep='first')
     end = time.time()
-    now = datetime.now()
-    now = now.strftime("%Y-%m-%d_%H-%M-%S")
-    asset_proforma_monthly_basis.to_csv(f"csvs/asset_proforma_monthly_basis_{now}.csv")
     print(f"get_asset_proforma_monthly_basis(combined_asset_proforma) took: {end - start}")
+    # now = get_time_now()
+    # asset_proforma_monthly_basis.to_csv(f"csvs/asset_proforma_monthly_basis_{now}.csv")
 
     return asset_proforma_monthly_basis
 
 
 if __name__ == '__main__':
     proforma_df = proforma_monthly_dataframe()
-    df = proforma_df.head()
-
-    proforma_df['monitoring_platform'].replace({'662730001.0': 'Locus', '662730002.0': 'PowerTrack'}, inplace=True)
-    # maintain dataframe for unique assets
-    df_unique_asset = proforma_df.drop_duplicates('asset_id', keep='first')
-
-    now = datetime.now()
-    now = now.strftime("%Y-%m-%d_%H-%M-%S")
-    df_unique_asset.to_csv(f"csvs/df_unique_asset_{now}.csv")

@@ -2,6 +2,7 @@ import json
 import requests
 import time
 
+from utils import *
 
 class LocusApi():
     """Authentication & session usage for locus """
@@ -19,36 +20,10 @@ class LocusApi():
             'Content-Type': "application/x-www-form-urlencoded",
             'cache-control': "no-cache",
         }
-        self.__session = None
+        self.__session = requests.session()
         self.__access_token = None
         self.__refresh_token = None
         self.__create_locus_session()
-
-
-    def use_locus_session(self, url) -> requests.Response:
-        """We should only ever GET from locus"""
-
-        print(self.__access_token)
-        print(self.__refresh_token)
-        print(self.__session)
-
-        res = self.__session.get(url)
-        res_data = json.loads(res.text)
-        if res_data['statusCode'] == 429:
-            # Too many requests
-            #  pause for a min
-            time.sleep(60)
-            res = self.__session.get(url)
-            res_data = json.loads(res.text)
-        elif res_data['statusCode'] == 401:
-            if self.__refresh_token != None:
-                self.__refresh_session()
-            else:
-                self.__create_locus_session()
-            res = self.__session.get(url)
-            res_data = json.loads(res.text)
-
-        return res_data
 
 
     def __create_locus_session(self):
@@ -84,4 +59,58 @@ class LocusApi():
         self.__session.headers.update(self.__headers)
 
 
-    # def locus_url_builder(self, site_id)
+    def __use_session(self, url) -> dict:
+        """We should only ever GET from locus"""
+
+        res = self.__session.get(url)
+        res_json = json.loads(res.text)
+        if res_json['statusCode'] == 429:
+            # Too many requests
+            #  pause for a min
+            time.sleep(60)
+            res = self.__session.get(url)
+            res_json = json.loads(res.text)
+        elif res_json['statusCode'] == 401:
+            if self.__refresh_token != None:
+                self.__refresh_session()
+            else:
+                self.__create_locus_session()
+            res = self.__session.get(url)
+            res_json = json.loads(res.text)
+
+        print(res_json['statusCode'])
+        return res_json
+
+
+    def get_data_for_site(self, site_id: str , timestamps: list[str], short_name: str) -> list:
+        """
+        Iterates through the split_timestamps list and gets the first and last elements of the 
+            current iteration to make start and end dates. Then hits an endpoint to get data 
+            for that site
+
+        :param site_id: site id
+        :param timestamps: list of timestamps starting from PTO to today
+                                with intervals of 1500 inbetween
+                                i.e. ['2018-10-14T00:00:00', '2022-11-22T00:00:00', ...]
+        :param short_name: the specific datapoint we are trying to get
+        :return: list of dicts (responses from the endpoint)
+        """
+
+        responses = []
+
+        i, j = 0, 1
+        while (j < len(timestamps)):
+            start_date = timestamps[i]
+            end_date = timestamps[j] #add_days_to_date(timestamps[-1], 1)
+            url = f'https://api.locusenergy.com/v3/sites/{str(site_id)}/data?'
+            url += f'start={start_date}'
+            url += f'&end={end_date}'
+            url += '&tz=UTC&gran=daily'
+            url += f'&fields={short_name}'
+
+            response = self.__use_session(url)
+            responses.extend(response['data'])
+            i += 1
+            j += 1
+
+        return responses

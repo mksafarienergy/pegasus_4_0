@@ -15,7 +15,7 @@ pd.set_option('display.max_columns', 500)
 
 if __name__ == '__main__':
     locus_api = LocusApi()
-    res = locus_api.use_locus_session('https://api.locusenergy.com/v3/sites/3888881/data?fields=Wh_sum&start=2022-3-7T00:00:00&end=2022-3-29T00:00:00&tz=UTC&gran=daily')
+    res = locus_api.get_data_for_site('3822685', ['2022-11-10T00:00:00', '2022-11-22T00:00:00'], 'Wh_sum')
     print(res)
     # proforma_df = proforma_monthly_dataframe()
     

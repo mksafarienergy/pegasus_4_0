@@ -1,0 +1,377 @@
+import json
+import requests
+
+
+HEADERS = {
+    'Content-Type': "application/x-www-form-urlencoded",
+    'Authorization': "Bearer " + token,
+    'cache-control': "no-cache",
+}
+
+
+def get_site_components(site_id, token):
+    """
+        input: site_id (Project's unique Locus ID)
+        output: response data from API call to site
+
+        TODO: Old comments, please update
+    """
+    url = "https://api.locusenergy.com/v3/sites/" + str(site_id) + "/components"
+
+    headers = {
+        'Content-Type': "application/x-www-form-urlencoded",
+        'Authorization': "Bearer " + token,
+        'cache-control': "no-cache",
+    }
+
+    response = requests.request("GET", url, headers=headers)
+
+    response_data = json.loads(response.text)
+    
+    return response_data
+
+
+
+def get_data_available_for_site(site_id):
+    #input: site_id (Project's unique Locus ID)
+    #output: response data from API call to site data available
+    url = "https://api.locusenergy.com/v3/sites/" + str(site_id) + "/dataavailable"
+
+    headers = {
+        'Content-Type': "application/x-www-form-urlencoded",
+        'Authorization': "Bearer " + token,
+        'cache-control': "no-cache",
+        }
+
+    response = requests.request("GET", url, headers=headers)
+
+    response_data = json.loads(response.text)
+    
+    return response_data
+
+
+
+def get_data_for_site(site_id, start_date, end_date, short_name):
+    #input: site_id, start date, end date, relevant field
+    #issue an API call to find the relevant data for a site
+    url = "https://api.locusenergy.com/v3/sites/" + str(site_id) + "/data?"
+    url += "start=" + format_datetime(start_date)
+    url += "&end=" + format_datetime(end_date)
+    url += "&tz=UTC&gran=daily"
+    url += "&fields=" + short_name
+
+    headers = {
+        'Content-Type': "application/x-www-form-urlencoded",
+        'Authorization': "Bearer " + token,
+        'cache-control': "no-cache",
+        }
+
+    response = requests.request("GET", url, headers=headers)
+
+    response_data = json.loads(response.text)
+    
+    return response_data
+
+
+def get_site_alerts(site_id):
+    #input: site_id (Project's unique Locus ID)
+    #output: response data from API call to site
+    url = "https://api.locusenergy.com/v3/sites/" + str(site_id) + "/alerts?tz=UTC"
+
+    headers = {
+        'Content-Type': "application/x-www-form-urlencoded",
+        'Authorization': "Bearer " + token,
+        'cache-control': "no-cache",
+        }
+
+    response = requests.request("GET", url, headers=headers)
+
+    response_data = json.loads(response.text)
+    
+    return response_data
+
+
+
+def get_data_available_for_component(component_id):
+    #input: component_id (component's unique Locus ID)
+    #output: response data from API call to component data available
+    url = "https://api.locusenergy.com/v3/components/" + str(component_id) + "/dataavailable"
+
+    headers = {
+        'Content-Type': "application/x-www-form-urlencoded",
+        'Authorization': "Bearer " + token,
+        'cache-control': "no-cache",
+        }
+
+    response = requests.request("GET", url, headers=headers)
+
+    response_data = json.loads(response.text)
+    
+    return response_data
+
+
+
+def get_data_for_component(component_id, start_date, end_date, short_name):
+    #input: component_id, start date, end date, relevant field
+    #issue an API call to find the relevant data for a component
+    url = "https://api.locusenergy.com/v3/components/" + str(component_id) + "/data?"
+    url += "start=" + format_datetime(start_date)
+    url += "&end=" + format_datetime(end_date)
+    url += "&tz=UTC&gran=daily"
+    url += "&fields=" + short_name
+
+    headers = {
+        'Content-Type': "application/x-www-form-urlencoded",
+        'Authorization': "Bearer " + token,
+        'cache-control': "no-cache",
+        }
+
+    response = requests.request("GET", url, headers=headers)
+
+    response_data = json.loads(response.text)
+    
+    return response_data
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+####################################################################################################
+####################################################################################################
+####################################################################################################
+# Pegasus 3.0
+####################################################################################################
+####################################################################################################
+####################################################################################################
+
+
+
+
+
+
+def get_data_available_for_component(component_id, token):
+    """
+    get component details from api call
+
+    :param component_id: component id
+
+    :return: json response (type:dict)
+    """
+    api_start_time = time.time()
+    url = "https://api.locusenergy.com/v3/components/" + str(component_id) + "/dataavailable"
+    headers = {
+        'Content-Type': "application/x-www-form-urlencoded",
+        'Authorization': "Bearer " + token,
+        'cache-control': "no-cache",
+    }
+    response = requests.request("GET", url, headers=headers)
+    response_data = json.loads(response.text)
+    if 'statusCode' in list(response_data.keys()):
+        if response_data['statusCode'] == 429:
+            time.sleep(60)
+            response = requests.request("GET", url, headers=headers)
+            response_data = json.loads(response.text)
+    api_time = time.time() - api_start_time
+    logger.info(f'Time taken for the API with url, {url}: {api_time} seconds')
+    return response_data
+
+
+def get_data_for_component(component_id, ts_list_split_list, short_name, token):
+    """
+    get component information from api call
+
+    :param component_id: component id
+    :param start_date: start date (type: str)
+    :param end_date: end date (type: str)
+    :param short_name: short name (type: str)
+
+    :return: json response (type: dict)
+    """
+    # issue an API call to find the relevant data for a component
+    api_start_time = time.time()
+    final_response = {}
+    data_list = []
+    status_code = 200
+    counter = 0
+    for split_list in ts_list_split_list:
+        start_date = split_list[0]
+        if counter == 0:
+            start_date = split_list[0].split('T')[0] + 'T00:00:00'
+        end_date = end_date_modifier(split_list[-1])
+        counter += 1
+        url = "https://api.locusenergy.com/v3/components/" + str(component_id) + "/data?"
+        url += "start=" + start_date
+        url += "&end=" + end_date
+        url += "&tz=UTC&gran=daily"
+        url += "&fields=" + short_name
+        headers = {
+            'Content-Type': "application/x-www-form-urlencoded",
+            'Authorization': "Bearer " + token,
+            'cache-control': "no-cache",
+        }
+        try:
+            response = requests.request("GET", url, headers=headers)
+            response_data = json.loads(response.text)
+            status_code = response_data['statusCode']
+            if status_code == 429:
+                time.sleep(60)
+                response = requests.request("GET", url, headers=headers)
+                response_data = json.loads(response.text)
+                status_code = response_data['statusCode']
+            data_list.extend(response_data['data'])
+        except:
+            continue
+    if not data_list:
+        status_code = 400
+    final_response.update({'statusCode': status_code})
+    final_response.update({'data': data_list})
+    api_time = time.time() - api_start_time
+    logger.info(f'Time taken for the API with url, {url}: {api_time} seconds')
+    return final_response
+
+
+def get_data_for_site(site_id, ts_list_split_list, short_name, token):
+    """
+    get relevant data for a site
+
+    :param site_id: site id (type:str)
+    :param start_date: datetime obj (type: obj)
+    :param end_date: datetime obj (type: obj)
+    :param short_name: short name (type:str)
+
+    :return: json response (type:dict)
+    """
+    api_start_time = time.time()
+    final_response = {}
+    data_list = []
+    status_code = 200
+    counter = 0
+    for split_list in ts_list_split_list:
+        start_date = split_list[0]
+        if counter == 0:
+            start_date = split_list[0].split('T')[0] + 'T00:00:00'
+        end_date = end_date_modifier(split_list[-1])
+        counter += 1
+        url = "https://api.locusenergy.com/v3/sites/" + str(site_id) + "/data?"
+        url += "start=" + start_date
+        url += "&end=" + end_date
+        url += "&tz=UTC&gran=daily"
+        url += "&fields=" + short_name
+
+        headers = {
+            'Content-Type': "application/x-www-form-urlencoded",
+            'Authorization': "Bearer " + token,
+            'cache-control': "no-cache",
+        }
+        try:
+            response = requests.request("GET", url, headers=headers)
+            response_data = json.loads(response.text)
+            status_code = response_data['statusCode']
+            if status_code == 429:
+                time.sleep(60)
+                response = requests.request("GET", url, headers=headers)
+                response_data = json.loads(response.text)
+                status_code = response_data['statusCode']
+            data_list.extend(response_data['data'])
+        except:
+            continue
+    if not data_list:
+        status_code = 400
+    final_response.update({'statusCode': status_code})
+    final_response.update({'data': data_list})
+    api_time = time.time() - api_start_time
+    logger.info(f'Time taken for the API with url, {url}: {api_time} seconds')
+    return final_response
+
+
+def get_site_alerts(site_id, token):
+    """
+    to get alerts on a site id
+
+    :param site_id: (type:str)
+
+    :return response_data: json response (type:dict)
+    """
+    api_start_time = time.time()
+    url = "https://api.locusenergy.com/v3/sites/" + str(site_id) + "/alerts?tz=UTC"
+
+    headers = {
+        'Content-Type': "application/x-www-form-urlencoded",
+        'Authorization': "Bearer " + token,
+        'cache-control': "no-cache",
+    }
+    response = requests.request("GET", url, headers=headers)
+    response_data = json.loads(response.text)
+    if response_data['statusCode'] == 429:
+        time.sleep(60)
+        response = requests.request("GET", url, headers=headers)
+        response_data = json.loads(response.text)
+    api_time = time.time() - api_start_time
+    logger.info(f'Time taken for the API with url, {url}: {api_time} seconds')
+    return response_data
+
+
+def get_site_names_ids(token):
+    """
+    api call for getting site ids and site names in locus
+
+    :param token: token for authorizing locus api (type: str)
+
+    :return: site names (type: list) and site ids (type: list)
+    """
+    # issues an api call for all Safari Energy projects
+    api_start_time = time.time()
+    url = "https://api.locusenergy.com/v3/partners/411744/sites"
+    headers = {
+        'Content-Type': "application/x-www-form-urlencoded",
+        'Authorization': "Bearer " + token,
+        'cache-control': "no-cache",
+    }
+    sites = requests.request("GET", url, headers=headers)
+    site_data = json.loads(sites.text)
+    # prints the names and IDs of all Safari Energy projects
+    site_names = []
+    site_ids = []
+    for site in site_data["sites"]:
+        site_name = site["name"]
+        site_id = int(site["id"])
+        site_names.append(site_name)
+        site_ids.append(site_id)
+    api_time = time.time() - api_start_time
+    logger.info(f'Time taken for the API with url, {url}: {api_time} seconds')
+    return site_names, site_ids
+
+
+def get_site_components(site_id, token):
+    """
+    get site components information from api call
+
+    :param site_id: (type: str)
+    :param token: token for accessing (type: str)
+
+    :return: json response (type: dict)
+    """
+    # input: site_id (Project's unique Locus ID)
+    # output: response data from API call to site
+    api_start_time = time.time()
+    url = "https://api.locusenergy.com/v3/sites/" + str(site_id) + "/components"
+    headers = {
+        'Content-Type': "application/x-www-form-urlencoded",
+        'Authorization': "Bearer " + token,
+        'cache-control': "no-cache",
+    }
+    response = requests.request("GET", url, headers=headers)
+    response_data = json.loads(response.text)
+    api_time = time.time() - api_start_time
+    logger.info(f'Time taken for the API with url, {url}: {api_time} seconds')
+    return response_data

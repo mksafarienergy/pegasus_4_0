@@ -1,22 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
-
-
-#IMPORTS
-
-
-# In[2]:
-
-
-import sqlalchemy as db
-from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String, Float, ForeignKey, text
-from sqlalchemy import select, join, and_, or_, desc, asc, between, func
-
-
-# In[3]:
-
 
 import requests
 import json
@@ -26,23 +10,14 @@ from datetime import date
 import pandas as pd
 import numpy as np
 import smartsheet
-import shutil
 import sys
 import logging
 import smtplib
 
+
 #benchmark script time
 script_start_time = datetime.now()
 database_df = pd.DataFrame() 
-
-
-# In[4]:
-
-
-#FUNCTIONS
-
-
-# In[5]:
 
 
 def extract_year_month_day(timestamp):
@@ -50,9 +25,6 @@ def extract_year_month_day(timestamp):
     month = int(timestamp[5:7])
     day = int(timestamp[8:10])
     return year, month, day
-
-
-# In[6]:
 
 
 def format_datetime(current_datetime):
@@ -81,9 +53,6 @@ def format_datetime(current_datetime):
     return datetime_string
 
 
-# In[7]:
-
-
 def format_timestamp(current_datetime):
     #turns datetime objects into strings adhering to the Locus API format
     datetime_string = ""
@@ -110,8 +79,6 @@ def format_timestamp(current_datetime):
     return datetime_string
 
 
-# In[8]:
-
 
 def find_previous_month():
     #finds the start and end datetimes of the previous month
@@ -132,10 +99,6 @@ def find_previous_month():
     
     return start_of_previous_month, end_of_previous_month
 
-
-# In[9]:
-
-
 def find_previous_day():
     #finds the datetime of the previous day
     current_datetime = datetime.now()
@@ -146,8 +109,6 @@ def find_previous_day():
     
     return start_of_interval, start_of_today
 
-
-# In[10]:
 
 
 def datetime_filename():
@@ -161,8 +122,6 @@ def datetime_filename():
     
     return final_string
 
-
-# In[11]:
 
 
 def log_filename():
@@ -188,9 +147,6 @@ def debug_log_filename():
     return final_string
 
 
-# In[12]:
-
-
 def meter_datetime_filename():
     #create a meter level database filename based on the date
     date = datetime.now()
@@ -214,17 +170,11 @@ def inverter_datetime_filename():
     return final_string
 
 
-# In[13]:
-
 
 def convert_timestamp_to_datetime(timestamp):
     relevant_timestamp_info = timestamp[:-6]
     formatted_datetime = datetime.strptime(relevant_timestamp_info, '%Y-%m-%dT%H:%M:%S')
     return formatted_datetime
-
-
-
-# In[14]:
 
 
 def convert_pto_to_timestamp(pto_date):
@@ -237,7 +187,6 @@ def convert_datetime_to_timestamp(dt):
     timestamp = dt.strftime('%Y-%m-%dT%H:%M:%S')+"+00:00"
     return timestamp
 
-# In[15]:
 
 
 def create_pto_date_dictionary():
@@ -256,8 +205,6 @@ def create_pto_date_dictionary():
             
     return pto_date_dict
 
-
-# In[16]:
 
 
 def create_backup_insolation_dictionary():
@@ -311,7 +258,6 @@ def create_project_id_maps():
     
     return project_id_map, powertrack_project_id_map
 
-# In[17]:
 
 
 def find_backup_site_id(backup_project_id):
@@ -327,7 +273,6 @@ def find_backup_site_id(backup_project_id):
     return backup_site_id
 
 
-# In[18]:
 
 
 def generate_oauth_token():
@@ -353,8 +298,6 @@ def generate_oauth_token():
     return token, refresh_token
 
 
-# In[19]:
-
 
 def refresh_oauth_token(refresh_token):
     #Refresh API OAuth Token
@@ -378,8 +321,6 @@ def refresh_oauth_token(refresh_token):
     return token
 
 
-# In[20]:
-
 
 def get_data_available_for_site(site_id):
     #input: site_id (Project's unique Locus ID)
@@ -399,7 +340,6 @@ def get_data_available_for_site(site_id):
     return response_data
 
 
-# In[21]:
 
 
 def get_data_for_site(site_id, start_date, end_date, short_name):
@@ -424,7 +364,6 @@ def get_data_for_site(site_id, start_date, end_date, short_name):
     return response_data
 
 
-# In[22]:
 
 
 def get_site_components(site_id):
@@ -461,7 +400,7 @@ def get_site_alerts(site_id):
     response_data = json.loads(response.text)
     
     return response_data
-# In[23]:
+
 
 
 def get_data_available_for_component(component_id):
@@ -482,7 +421,6 @@ def get_data_available_for_component(component_id):
     return response_data
 
 
-# In[24]:
 
 
 def get_data_for_component(component_id, start_date, end_date, short_name):
@@ -507,7 +445,6 @@ def get_data_for_component(component_id, start_date, end_date, short_name):
     return response_data
 
 
-# In[25]:
 
 
 def find_relevant_fields(component_data):
@@ -590,7 +527,6 @@ def pull_component_data(site_id, pto_date):
     return component_dict, component_dict_2, relevant_components, inverters, inverter_parents
 
 
-# In[27]:
 
 
 def find_relevant_data(relevant_components, component_dict, component_dict_2):
@@ -660,7 +596,6 @@ def find_relevant_data(relevant_components, component_dict, component_dict_2):
     return data_dicts
 
 
-# In[28]:
 
 def get_inverter_data(pto_date, inverters):
     inverter_dfs = {}
@@ -779,7 +714,7 @@ def pull_poa_insolation(component_dict, component_dict_2, pto_date):
                 
     return poa_insolation_df, ws_detail
 
-# In[31]:
+
 
 def pull_module_temp(component_dict, component_dict_2, pto_date):
     print("Retrieving Module Temperature...")
@@ -848,7 +783,7 @@ def pull_module_temp(component_dict, component_dict_2, pto_date):
     return module_temp_df
 
 
-# In[31]:
+
 
 def pull_ambient_temp(component_dict, component_dict_2, pto_date):
     print("Retrieving Ambient Temperature...")
@@ -1170,7 +1105,8 @@ def pull_expected_energy(pto_date):
     return expected_energy_df
 
 
-# In[43]:
+
+
 def pull_max_snow_depth(pto_date):
     print("Retrieving Max Snow Depth...")
     
@@ -1385,14 +1321,6 @@ def construct_index_df(first_timestamp, final_timestamp, short_names, project_id
     
     return format_df
 
-
-# In[45]:
-
-
-#PRO FORMA
-
-
-# In[46]:
 
 
 def connect_to_pro_forma_db():
@@ -1654,7 +1582,6 @@ def create_database(database_path):
     # return energy, conn
 
 
-# In[55]:
 
 
 def insert_into_energy_database(final_df, energy, conn):
@@ -2503,10 +2430,7 @@ project_id_maps = [project_id_map_az, project_id_map_ca, project_id_map_co, proj
 
 
 
-# In[75]:
 
-
-# In[76]:
 
 #create the project ID map from Equipment Library
 project_id_map, _ = create_project_id_maps()
@@ -2535,11 +2459,10 @@ i = 0
 counter = 0
 
 print(project_id_map)
-raise Exception("shfdjvfdjvdhvhfdjkfdnvfd") #delete
+# raise Exception("shfdjvfdjvdhvhfdjkfdnvfd") #delete
 
 #loop over all sites in the map
 for site_id in list(project_id_map.keys()):
-    continue #delete
     counter+=1
     print(f"{counter}/{len(list(project_id_map.keys()))}")
     
@@ -2611,7 +2534,9 @@ for site_id in list(project_id_map.keys()):
         #logger.exception("Error encountered")
         #send_error_message(site_id)
 
-# In[83]:
+
+
+
 
 #close the database connections
 conn.close()
@@ -2619,7 +2544,7 @@ conn.close()
 pro_forma_conn.close()
 
 
-# In[84]:
+
 
 
 #final_df_dict[list(final_df_dict.keys())[-1]]
@@ -2628,7 +2553,8 @@ now = datetime.now()
 now = now.strftime("%Y-%m-%d_%H-%M-%S")
 database_df.to_csv(f"C:\\Users\\NadimAtalla\\Desktop\\temp\\database_df_{now}.csv")
 
-# In[85]:
+
+
 
 
 print("Saving DB Backup...")
@@ -2654,7 +2580,6 @@ destination = inverter_datetime_filename()
 #shutil.copy(source, destination)
 
 
-# In[87]:
 
 #calculate time taken for entire script
 script_end_time = datetime.now()
@@ -2662,6 +2587,3 @@ time_taken = (script_end_time - script_start_time).seconds
 print("Script runtime: ", time_taken, " seconds")
 
 print("Script computation complete!")
-# %%
-
-# %%

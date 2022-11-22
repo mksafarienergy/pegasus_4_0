@@ -28,7 +28,7 @@ def create_session():
     session.headers.update(dict(Authorization=f'Bearer {access_token}'))
     return session
 
-def use_session(session, url):
+def use_dynamics_session(session, url):
     """We should only ever GET from dynamics"""
 
     return session.get(url)

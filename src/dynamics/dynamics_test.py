@@ -1,4 +1,4 @@
-from dynamics_auth import create_session, use_session
+from dynamics_auth import create_session, use_dynamics_session
 import pandas as pd
 
 
@@ -9,12 +9,12 @@ API_URL = 'https://safarienergy.api.crm.dynamics.com/api/data/v9.2/'
 
 
 
-if __name__ == "__main__":
-    print("Hello World!")
-    session = create_session()
-    res = use_session(session, API_URL+'msdyn_customerassets?$select=msdyn_name,cre90_projectnumber,cre90_monitoringplatform,cre90_monitoringplatformid,msdyn_customerassetid,cre90_availableinpegasus,cre90_opportunityaddress,cre90_timezone')
-    df = pd.read_json(res.json())
-    print(df)
+# if __name__ == "__main__":
+#     print("Hello World!")
+#     session = create_session()
+#     res = use_dynamics_session(session, API_URL+'msdyn_customerassets?$select=msdyn_name,cre90_projectnumber,cre90_monitoringplatform,cre90_monitoringplatformid,msdyn_customerassetid,cre90_availableinpegasus,cre90_opportunityaddress,cre90_timezone')
+#     df = pd.read_json(res.json())
+#     print(df)
 
 
 

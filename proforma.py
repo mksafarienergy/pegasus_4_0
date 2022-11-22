@@ -7,7 +7,7 @@ from datetime import datetime
 
 import pandas as pd
 
-from authentication.dynamics_auth import create_session, use_session
+from src.dynamics.dynamics_auth import create_session, use_dynamics_session
 from utils import get_time_now
 
 warnings.filterwarnings("ignore")
@@ -32,7 +32,7 @@ def get_assets(session) -> pd.DataFrame:
     :return: DataFrame with asset information and another DataFrame with same data
     """
 
-    res = use_session(session, API_URL+'msdyn_customerassets?$select=msdyn_name,cre90_projectnumber,cre90_monitoringplatform,\
+    res = use_dynamics_session(session, API_URL+'msdyn_customerassets?$select=msdyn_name,cre90_projectnumber,cre90_monitoringplatform,\
                                    cre90_monitoringplatformid,msdyn_customerassetid,cre90_availableinpegasus,cre90_opportunityaddress,cre90_timezone')
     res_json = res.content.decode('utf-8')
     asset_data = json.loads(res_json)
@@ -77,7 +77,7 @@ def get_proformas(session, df_assets: pd.DataFrame) -> pd.DataFrame:
     :return: DataFrame with asset information and another DataFrame with same data
     """
     
-    res = use_session(session, API_URL+'cre90_assetproformas?$select=\
+    res = use_dynamics_session(session, API_URL+'cre90_assetproformas?$select=\
                                 cre90_name,\
                                 cre90_apistartdate,\
                                 _cre90_asset_value,\
@@ -367,5 +367,5 @@ def proforma_monthly_dataframe():
     return asset_proforma_monthly_basis
 
 
-if __name__ == '__main__':
-    proforma_df = proforma_monthly_dataframe()
+# if __name__ == '__main__':
+#     proforma_df = proforma_monthly_dataframe()

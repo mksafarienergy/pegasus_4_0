@@ -35,7 +35,6 @@ def get_query_string_by_table(table_name) -> str:
     return ''
 
 
-
 def insert_into_table(table_name) -> None:
     """
     Inserting a single row into a table. retrieves
@@ -49,5 +48,18 @@ def insert_into_table(table_name) -> None:
     print(f'Rows inserted: {str(count)} | {end - start}')
 
 
-if __name__ == "__main__":
-    insert_into_table('temp_locus_sitelevel_daily')
+def insert_into_table_test(table_name) -> None:
+    """
+    Inserting a single row into a table. retrieves
+    """
+
+    start = time.time()
+    query = get_query_string_by_table(table_name)
+    count = cursor.executemany(query, [['Test1', 'TestLocus', 'Test Backup', '234', 324]]*5000)
+    cnxn.commit()
+    end = time.time()
+    print(f'Rows inserted: {str(count)} | {end - start}')
+
+
+# if __name__ == "__main__":
+#     insert_into_table_test('temp_locus_sitelevel_daily')

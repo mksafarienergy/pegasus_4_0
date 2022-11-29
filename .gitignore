@@ -1,2 +1,4 @@
 csvs
 __pycache__
+logs
+.vscode

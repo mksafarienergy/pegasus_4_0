@@ -9,7 +9,8 @@ class LocusApi():
 
     def __init__(self):
         """TODO: Look into having these values in some azure vault"""
-        self.__auth_url = "https://api.locusenergy.com/oauth/token"
+        self.__auth_url = 'https://api.locusenergy.com/oauth/token'
+        self.__base_url = 'https://api.locusenergy.com/v3'
         self.__grant_type_password = 'password'
         self.__grant_type_refresh = 'refresh_token'
         self.__username = 'pperillo@safarienergy.com'
@@ -59,14 +60,15 @@ class LocusApi():
         self.__session.headers.update(self.__headers)
 
 
-    def __use_session(self, url) -> dict:
+    def __use_session(self, url: str) -> dict:
         """We should only ever GET from locus"""
 
+        print(f'Endpoint: {url}')
+        start = time.time()
         res = self.__session.get(url)
         res_json = json.loads(res.text)
         if res_json['statusCode'] == 429:
-            # Too many requests
-            #  pause for a min
+            # Too many requests, pause for a minute
             time.sleep(60)
             res = self.__session.get(url)
             res_json = json.loads(res.text)
@@ -78,11 +80,12 @@ class LocusApi():
             res = self.__session.get(url)
             res_json = json.loads(res.text)
 
-        print(res_json['statusCode'])
+        run_time = time.time() - start
+        print(f'Request responded with a {res_json["statusCode"]} status code and took {run_time} seconds to run')
         return res_json
 
 
-    def get_data_for_site(self, site_id: str , timestamps: list[str], short_name: str) -> list:
+    def _get_data_for_site(self, site_id: str , intervaled_timestamps: list[list[str]], short_name: str) -> list:
         """
         Iterates through the split_timestamps list and gets the first and last elements of the 
             current iteration to make start and end dates. Then hits an endpoint to get data 
@@ -98,11 +101,10 @@ class LocusApi():
 
         responses = []
 
-        i, j = 0, 1
-        while (j < len(timestamps)):
-            start_date = timestamps[i]
-            end_date = timestamps[j] #add_days_to_date(timestamps[-1], 1)
-            url = f'https://api.locusenergy.com/v3/sites/{str(site_id)}/data?'
+        for timestamps in intervaled_timestamps:
+            start_date = timestamps[0]
+            end_date = add_days_to_date(timestamps[-1], 1)
+            url = f'{self.__base_url}/sites/{str(site_id)}/data?'
             url += f'start={start_date}'
             url += f'&end={end_date}'
             url += '&tz=UTC&gran=daily'
@@ -110,7 +112,81 @@ class LocusApi():
 
             response = self.__use_session(url)
             responses.extend(response['data'])
-            i += 1
-            j += 1
 
         return responses
+
+
+    def _get_site_components(self, site_id: str) -> list:
+        """Gets all the components for a specific site"""
+
+        url = f'{self.__base_url}/sites/{str(site_id)}/components'
+
+        response = self.__use_session(url)
+        return response['components']
+
+
+    def _get_data_for_component(self, component_id: str , intervaled_timestamps: list[list[str]], short_name: str) -> list:
+        """
+        Iterates through the split_timestamps list and gets the first and last elements of the 
+            current iteration to make start and end dates. Then hits an endpoint to get data 
+            for that site
+
+        :param site_id: site id
+        :param timestamps: list of timestamps starting from PTO to today
+                                with intervals of 1500 inbetween
+                                i.e. ['2018-10-14T00:00:00', '2022-11-22T00:00:00', ...]
+        :param short_name: the specific datapoint we are trying to get
+        :return: list of dicts (responses from the endpoint)
+        """
+
+        responses = []
+
+        for timestamps in intervaled_timestamps:
+            start_date = timestamps[0]
+            end_date = add_days_to_date(timestamps[-1], 1)
+            url = f'{self.__base_url}/components/{str(component_id)}/data?'
+            url += f'start={start_date}'
+            url += f'&end={end_date}'
+            url += '&tz=UTC&gran=daily'
+            url += f'&fields={short_name}'
+
+            response = self.__use_session(url)
+            responses.extend(response['data'])
+            
+        return responses
+
+
+    def _get_data_available_for_component(self, component_id: str) -> list[dict]:
+        """
+        Getting the data available for a specific component from locus
+            Data will include basefields like shortname, longname, etc.
+
+        :param component_id: id of the desired component
+        :return: list of dictionaries. Each element will contain a basefield
+                that holds information of a specific piece of information 
+                available for the component
+                ex. {"baseField":"Hz",
+                    "longName":"AC Frequency",
+                    "source":"Measured",
+                    "unit":"Hz",
+                    "aggregations": []... etc.}
+        """
+
+        url = f'{self.__base_url}/components/{component_id}/dataavailable'
+
+        response = self.__use_session(url)
+        return response['baseFields']
+
+
+    def _testme(self):
+        """Used to test out the functions above"""
+
+        timestamps = get_timestamps(datetime(2022, 11, 10))
+        # test1 = self._get_data_for_site('3822685', timestamps, 'Wh_sum')
+        # test2 = self._get_site_components('3822685')
+        # test3 = self._get_data_for_component('2590683', timestamps, 'Wh_sum')
+        test4 = self._get_data_available_for_component('2590683')
+
+        # print(test1)
+        # print(test2)
+        # print(test3)

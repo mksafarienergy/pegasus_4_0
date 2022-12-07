@@ -2,7 +2,10 @@ import json
 import requests
 import time
 
+import pandas as pd
+
 from utils import *
+from src.logger.logger import *
 
 class LocusApi():
     """Authentication & session usage for locus """
@@ -25,16 +28,30 @@ class LocusApi():
         self.__access_token = None
         self.__refresh_token = None
         self.__create_locus_session()
+        self.__api_stats = pd.DataFrame(columns=['url', 'run_time'])
+        log('Constructor finished for LocusApi')
 
 
-    def __create_locus_session(self):
+    def _deconstructor(self):
+        """
+        Deconstructor - Exporing dfs to csvs
+        __del__ does not work well here because it seems that the imports are 
+            destroyed before it runs. Making the functions below throw an error
+        """
+
+        now = get_time_now()
+        self.__api_stats.to_csv(f'csvs/api_stats_{now}.csv')
+        log('Deconstructor for LocusApi')
+
+
+    def __create_locus_session(self) -> None:
         self.__generate_tokens()
 
         self.__session = requests.Session()
         self.__session.headers.update(self.__headers)
 
 
-    def __generate_tokens(self):
+    def __generate_tokens(self) -> None:
         """Generating initial session using login"""
 
         data = f'grant_type={self.__grant_type_password}&client_id={self.__client_id}&client_secret={self.__client_secret}&username={self.__username}&password={self.__password}'
@@ -47,7 +64,7 @@ class LocusApi():
         self.__headers["Authorization"] = f'Bearer {self.__access_token}'
         
 
-    def __refresh_session(self):
+    def __refresh_session(self) -> None:
         """Refreshing session using refresh token"""
 
         data = f'grant_type={self.__grant_type_refresh}&client_id={self.__client_id}&client_secret={self.__client_secret}&refresh_token={self.__refresh_token}'
@@ -63,7 +80,7 @@ class LocusApi():
     def __use_session(self, url: str) -> dict:
         """We should only ever GET from locus"""
 
-        print(f'Endpoint: {url}')
+        log(f'Endpoint: {url}')
         start = time.time()
         res = self.__session.get(url)
         res_json = json.loads(res.text)
@@ -81,7 +98,8 @@ class LocusApi():
             res_json = json.loads(res.text)
 
         run_time = time.time() - start
-        print(f'Request responded with a {res_json["statusCode"]} status code and took {run_time} seconds to run')
+        self.__api_stats = self.__api_stats.append({ 'url': url, 'run_time': run_time }, ignore_index=True)
+        log(f'Request responded with a {res_json["statusCode"]} status code and took {run_time} seconds to run')
         return res_json
 
 

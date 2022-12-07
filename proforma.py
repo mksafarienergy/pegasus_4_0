@@ -8,7 +8,7 @@ from datetime import datetime
 import pandas as pd
 
 from src.dynamics.dynamics_auth import create_session, use_dynamics_session
-from utils import get_time_now
+# from utils import get_time_now
 
 warnings.filterwarnings("ignore")
 pd.set_option('display.max_rows', 500)

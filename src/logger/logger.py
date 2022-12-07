@@ -2,6 +2,7 @@ from datetime import datetime
 import logging
 import sys
 
+
 def log_filename() -> str:
     """
     Generates the file path string for the new log file every time the 
@@ -12,7 +13,6 @@ def log_filename() -> str:
     date_time_string = date.strftime("%Y-%m-%d %H-%M-%S")
     
     return f"./logs/Log - {date_time_string}.log"
-
 
 
 def set_up_logger(log_path=log_filename()) -> None:
@@ -37,14 +37,14 @@ def set_up_logger(log_path=log_filename()) -> None:
     sys.stdout = log
 
 
-
 def log(message) -> None:
     """
     Logs message in certain format.
     First 19 spaces are for time, and the rest is the message itself
     """
     
-    date = datetime.now()
-    date_time_string = date.strftime("%Y-%m-%d %H-%M-%S")
+    time_now = datetime.now()
+    date_time_string = time_now.strftime("%Y-%m-%d %H-%M-%S")
 
-    print("{:<19} | {}".format(date_time_string, message))
+    print(f'{date_time_string:<19} | {message}')
+    # print("{:<19} | {}".format(date_time_string, message))

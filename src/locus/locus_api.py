@@ -150,9 +150,9 @@ class LocusApi():
             for that site
 
         :param site_id: site id
-        :param timestamps: list of timestamps starting from PTO to today
-                                with intervals of 1500 inbetween
-                                i.e. ['2018-10-14T00:00:00', '2022-11-22T00:00:00', ...]
+        :param intervaled_timestamps: list of list of timestamps starting from PTO (ideally) to today
+                                    with intervals inbetween
+                                    i.e. [['2018-10-14T00:00:00', '2022-11-22T00:00:00'], [str, str], ...]
         :param short_name: the specific datapoint we are trying to get
         :return: list of dicts (responses from the endpoint)
         """
@@ -169,6 +169,7 @@ class LocusApi():
             url += f'&fields={short_name}'
 
             response = self.__use_session(url)
+            # log(response)
             responses.extend(response['data'])
             
         return responses
@@ -194,6 +195,15 @@ class LocusApi():
 
         response = self.__use_session(url)
         return response['baseFields']
+
+
+    def _get_site_alerts(self, site_id:str) -> list[dict]:
+        """"""
+        url = f'{self.__base_url}/sites/{site_id}/alerts?tz=UTC'
+
+        response = self.__use_session(url)
+        log(response)
+        return response
 
 
     def _testme(self):

@@ -18,10 +18,12 @@ from dateutil import rrule
 
 import pandas as pd
 
+from src.logger.logger import log
+
 
 def get_time_now() -> str:
     now = datetime.now()
-    return now.strftime("%Y-%m-%d_%H-%M-%S")
+    return now.strftime('%Y-%m-%d_%H-%M-%S')
 
 
 def get_todays_timestamp() -> str:
@@ -32,13 +34,15 @@ def get_todays_timestamp() -> str:
 
 def reformat_date_to_timestamp(date_string: str) -> str:
     """
-    Reformatting date from using / to -
+    Reformatting date from using / to -. Used to reformat the date
+        that was taken from the proforma data structure from Dynamics
 
     :param date_string: date of format %Y-%m-%d
     :return: date of format %Y-%m-%dT%H:%M:%S
     """
     
-    return datetime.strptime(date_string, '%Y-%m-%d').strftime('%Y-%m-%dT%H:%M:%S')
+    return datetime.strptime(date_string, '%m/%d/%Y').strftime('%Y-%m-%dT%H:%M:%S')
+    # return datetime.strptime(date_string, '%Y-%m-%d').strftime('%Y-%m-%dT%H:%M:%S')
 
 
 def add_days_to_date(some_date: str, number_of_days: int) -> str:
@@ -62,12 +66,14 @@ def add_days_to_date(some_date: str, number_of_days: int) -> str:
 def convert_datetime_to_timestamp(some_date: datetime) -> str:
     """
     convert datetime object to the string format accepted by Locus api
+    TODO: Dont know if it should include the +00:00. Maybe another function
+        should add it in and remove it
 
     :param some_date: some date
-    :return: string date of format %Y-%m-%dT%H:%M:%S+00:00
+    :return: string date of format %Y-%m-%dT%H:%M:%S    # +00:00
     """
 
-    timestamp = some_date.strftime('%Y-%m-%dT%H:%M:%S') + "+00:00"
+    timestamp = some_date.strftime('%Y-%m-%dT%H:%M:%S') # + '+00:00'
     return timestamp
 
 
@@ -84,61 +90,105 @@ def convert_timestamp_to_datetime(timestamp: str) -> datetime:
     return datetime.strptime(timestamp, '%Y-%m-%dT%H:%M:%S')
 
     
-def split_timestamps_into_intervals(timestamps: list, interval: int) -> list[list]:
+def split_timestamps_into_intervals(start_datetime: datetime, interval: int) -> list[list[str]]:
     """
+    TODO: Might need to make the inner lists append by 1 so that the start date is not 
+        the same as the previous element i.e. to avoid this-> [[a,b], [b,c]]
     splitting list of timestamps at regular intervals
         ex: len(timestamps) is 3100 elements long
             inverval is 1500
             return [[first 1500 timestamps], [next 1500 timestamps], [last 100]]
 
-    :param timestamps: list of timestamps from start to end dates (incrementing by 1)
+    :param start_datetime: start date (datetime)
     :param interval: desired regular interval of timestamps considered for api call
     :return: list[lists] of timestamps splitted at an interval
     """
 
-    new_list = list(map(list, zip(*([iter(timestamps)] * interval))))
-    new_len = len(new_list) * interval
-    org_len = len(timestamps)
-    diff = org_len - new_len
-    new_list.append(timestamps[-diff:])
+    invervaled_timestamps = []
+    current_datetime = start_datetime
+    today = datetime.now()
+    while (current_datetime + timedelta(days=interval)) < today:
+        invervaled_timestamps.append([convert_datetime_to_timestamp(current_datetime), convert_datetime_to_timestamp(current_datetime + timedelta(days=interval))])
+        current_datetime += timedelta(days=interval)
+
+    invervaled_timestamps.append([convert_datetime_to_timestamp(current_datetime), convert_datetime_to_timestamp(today)])
+    return invervaled_timestamps
+
+# def split_timestamps_into_intervals(timestamps: list, interval: int) -> list[list]:
+#     """
+#     splitting list of timestamps at regular intervals
+#         ex: len(timestamps) is 3100 elements long
+#             inverval is 1500
+#             return [[first 1500 timestamps], [next 1500 timestamps], [last 100]]
+
+#     :param timestamps: list of timestamps from start to end dates (incrementing by 1)
+#     :param interval: desired regular interval of timestamps considered for api call
+#     :return: list[lists] of timestamps splitted at an interval
+#     """
+
+#     new_list = list(map(list, zip(*([iter(timestamps)] * interval))))
+#     new_length = len(new_list) * interval
+#     original_length = len(timestamps)
+#     difference = original_length - new_length
+#     new_list.append(timestamps[-difference:])
     
-    return new_list
+#     return new_list
 
 
-def get_timestamps(start_date: str) -> tuple[list[list[str]], list]:
+def get_timestamps(start_timestamp: str) -> tuple[list[list[str]], list]:
     """
-    Might deprecate this. See notes at top of this file.
+    TODO: Deprecate this and do a new one where its notes needs
     """
 
-    start_date_obj = convert_timestamp_to_datetime(start_date)
-    first_datetime = datetime(start_date_obj.year, start_date_obj.month, start_date_obj.day, 0, 0, 0)
+    log('New verson of get_timestamps')
+    start_datetime = convert_timestamp_to_datetime(start_timestamp)
     current_datetime = datetime.now()
-    final_datetime = datetime(current_datetime.year, current_datetime.month, current_datetime.day, 0, 0, 0)
-    number_of_days = (final_datetime - first_datetime).days
+    number_of_days = (current_datetime - start_datetime).days
 
     all_timestamps, all_datetimes = [], []
     for i in range(number_of_days):
-        date = first_datetime + timedelta(days=i)
+        date = start_datetime + timedelta(days=i)
         timestamp = convert_datetime_to_timestamp(date)
         all_timestamps.append(timestamp)
         all_datetimes.append(date)
 
     ts_mod = [time.split('+')[0] for time in all_timestamps]
-    ts_list_split_list = split_timestamps_into_intervals(ts_mod, 1500)
+    intervaled_timestamps = split_timestamps_into_intervals(start_datetime, 1500) #TODO: CHANGE THIS FUNCT
+    # intervaled_timestamps = split_timestamps_into_intervals(ts_mod, 1500)
 
-    print(len(ts_list_split_list))
-    print(len(ts_list_split_list[0]))
+    return intervaled_timestamps, all_timestamps
+# def get_timestamps(start_date_timestamp: str) -> tuple[list[list[str]], list]:
+#     """
+#     TODO: Deprecate this and do a new one where its notes needs
+#     """
 
-    return ts_list_split_list, all_timestamps
+#     start_date_obj = convert_timestamp_to_datetime(start_date_timestamp)
+#     first_datetime = datetime(start_date_obj.year, start_date_obj.month, start_date_obj.day, 0, 0, 0)
+#     current_datetime = datetime.now()
+#     final_datetime = datetime(current_datetime.year, current_datetime.month, current_datetime.day, 0, 0, 0)
+#     number_of_days = (final_datetime - first_datetime).days
+
+#     all_timestamps, all_datetimes = [], []
+#     for i in range(number_of_days):
+#         date = first_datetime + timedelta(days=i)
+#         timestamp = convert_datetime_to_timestamp(date)
+#         all_timestamps.append(timestamp)
+#         all_datetimes.append(date)
+
+#     ts_mod = [time.split('+')[0] for time in all_timestamps]
+#     ts_list_split_list = split_timestamps_into_intervals(ts_mod, 1500)
+
+#     return ts_list_split_list, all_timestamps
 
 
-def create_timestamp_list(start_date: str, end_date: str) -> list[str]:
+def create_timestamp_list(start_timestamp: str, end_timestamp: str) -> list[str]:
     """Creating a list of timestamps"""
 
-    end_date_obj = convert_timestamp_to_datetime(end_date)
-    start_date_obj = convert_timestamp_to_datetime(start_date)
-    dates = rrule.rrule(rrule.DAILY, dtstart=start_date_obj, until=end_date_obj)
-    return [d.strftime('%Y-%m-%dT%H:%M:%S') + '+00:00' for d in dates]
+    start_datetime = convert_timestamp_to_datetime(start_timestamp)
+    end_datetime = convert_timestamp_to_datetime(end_timestamp)
+    dates = rrule.rrule(rrule.DAILY, dtstart=start_datetime, until=end_datetime)
+    return [convert_datetime_to_timestamp(d) + '+00:00' for d in dates]
+    # return [d.strftime('%Y-%m-%dT%H:%M:%S') + '+00:00' for d in dates]
 
 
 def get_cell_by_column_name_from_asset_id(df: pd.DataFrame, asset_id: str, column_name: str):

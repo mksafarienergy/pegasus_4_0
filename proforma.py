@@ -8,7 +8,7 @@ from datetime import datetime
 import pandas as pd
 
 from src.dynamics.dynamics_auth import create_session, use_dynamics_session
-# from utils import get_time_now
+from utils import get_time_now
 
 warnings.filterwarnings("ignore")
 pd.set_option('display.max_rows', 500)
@@ -23,7 +23,7 @@ month_insolation_list = ['jan_inso', 'feb_inso', 'mar_inso', 'apr_inso', 'may_in
 month_name_list = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 
-def get_assets(session) -> pd.DataFrame:
+def get_assets(session) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Getting data from the asset table in Dynamics. Cleaning up the data slightly to 
         remove uneccessary information and formatting it.
@@ -358,7 +358,7 @@ def proforma_monthly_dataframe():
     asset_proforma_monthly_basis = get_asset_proforma_monthly_basis(combined_asset_proforma)
     asset_proforma_monthly_basis['monitoring_platform'].replace({'662730001.0': 'Locus', '662730002.0': 'PowerTrack'}, inplace=True)
     # maintain dataframe for unique assets
-    asset_proforma_monthly_basis = asset_proforma_monthly_basis.drop_duplicates('asset_id', keep='first')
+    # asset_proforma_monthly_basis = asset_proforma_monthly_basis.drop_duplicates('asset_id', keep='first')
     end = time.time()
     print(f"get_asset_proforma_monthly_basis(combined_asset_proforma) took: {end - start}")
     # now = get_time_now()
@@ -367,5 +367,7 @@ def proforma_monthly_dataframe():
     return asset_proforma_monthly_basis
 
 
-# if __name__ == '__main__':
-#     proforma_df = proforma_monthly_dataframe()
+if __name__ == '__main__':
+    proforma_df = proforma_monthly_dataframe()
+    now = get_time_now()
+    proforma_df.to_csv(f'csvs/proforma_{now}.csv')

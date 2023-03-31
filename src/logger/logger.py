@@ -37,14 +37,38 @@ def set_up_logger(log_path=log_filename()) -> None:
     sys.stdout = log
 
 
+# def log(message) -> None:
+#     """
+#     Logs message in certain format.
+#     First 19 spaces are for time, and the rest is the message itself
+#     """
+#     try:
+#         time_now = datetime.now()
+#         date_time_string = time_now.strftime("%Y-%m-%d %H-%M-%S")
+
+#         print(f'{date_time_string:<19} | {message}')
+#         # print("{:<19} | {}".format(date_time_string, message))
+#     except Exception as e:
+#         log('Error in ogger: log')
+#         log(e)
+
 def log(message) -> None:
     """
     Logs message in certain format.
     First 19 spaces are for time, and the rest is the message itself
     """
-    
-    time_now = datetime.now()
-    date_time_string = time_now.strftime("%Y-%m-%d %H-%M-%S")
+    try:
+        time_now = datetime.now()
+        date_time_string = time_now.strftime("%Y-%m-%d %H-%M-%S")
 
-    print(f'{date_time_string:<19} | {message}')
-    # print("{:<19} | {}".format(date_time_string, message))
+        # Convert non-string objects to strings
+        if not isinstance(message, str):
+            message = str(message)
+
+        # Replace Ohm symbol (Ω) with 'O'
+        message = message.replace('\u2126', 'O')
+
+        print(f'{date_time_string:<19} | {message}')
+    except Exception as e:
+        log('Error in logger: log')
+        log(str(e))

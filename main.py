@@ -41,6 +41,7 @@ if __name__ == '__main__':
         # proforma_df.to_csv(f'csvs/proforma_df_{now}.csv')
 
         powertrack.mock_main(proforma_df)
+        
     elif platform == 'locus':
         locus = Locus() # LocusApi()
         run_time = time.time() - start

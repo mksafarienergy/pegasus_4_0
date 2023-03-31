@@ -5,24 +5,20 @@ Ih_e_sum: Expected Insolation (Wh/m²) sum
 Snow_m_max: Modeled Snow Depth (mm) max
 """
 
-import re
-
-
 from datetime import datetime
 import time
 
 import numpy as np
 import pandas as pd
-import json
 
 from utils import *
-from src.powertrack.powertrack_api import PowertrackApi
+from src.locus.locus_api import LocusApi
 from src.logger.logger import *
 
 
 
-class Powertrack(PowertrackApi):
-    """Contains all functionality of the Powertrack ETL structure"""
+class Locus(LocusApi):
+    """Contains all functionality of the Locus ETL structure"""
     
     def __init__(self):
         super().__init__()
@@ -38,7 +34,7 @@ class Powertrack(PowertrackApi):
         self.__weatherstation_short_names = { 'POAIh_sum': 'poa_insolation',  'TmpBOM_avg': 'module_temp',  'TmpAmb_avg': 'ambient_temp',  'WndSpd_avg': 'wind_speed' }
         self.__get_component_data_stats = pd.DataFrame(columns=['site_id', 'run_time'])
         self.__site_stats = pd.DataFrame(columns=['site_id', 'run_time'])
-        log('Constructor finished for Powertrack')
+        log('Constructor finished for Locus')
 
 
     def __deconstructor(self):
@@ -52,10 +48,10 @@ class Powertrack(PowertrackApi):
         super()._deconstructor()
         self.__get_component_data_stats.to_csv(f'csvs/get_component_data_stats_{now}.csv')
         self.__site_stats.to_csv(f'csvs/__site_stats_{now}.csv')
-        log('Deconstructor for Powertrack')
+        log('Deconstructor for Locus')
 
     
-    def __get_site_hardware(self, site_id: str) -> tuple[dict, set, set, set]:
+    def __get_site_components(self, site_id: str) -> tuple[dict, set, set]:
         """
         Replacing: pull_component_data
         Getting the component information of a site and keeping the 
@@ -70,37 +66,32 @@ class Powertrack(PowertrackApi):
 
         try:
             start = time.time()
-            #components = PowertrackApi._get_site_components(self, site_id)
-            hardware = super()._get_site_hardware(site_id)
-            log(f'powertrack.py,__get_site_hardware: hardware response from super()._get_site_hardware() is {hardware}')
-            hardware_details = {}
+            # components = LocusApi._get_site_components(self, site_id)
+            components = super()._get_site_components(site_id)
+            component_details = {}
             meter_ids = set()
             inverter_ids = set()
-            weatherstation_ids = set()
-            for hw in hardware:  
-                hw_id = hw['id']
-                hardware_details[hw_id] = {}
-                hardware_details[hw_id]['name'] = str(hw['name'])
-                hardware_details[hw_id]['functionCode'] = str(hw['functionCode'])
-                hardware_details[hw_id]['stringId'] = str(hw['stringId'])
-                if hw['functionCode'] == 'PM':
-                    meter_ids.add(hw_id)
-                elif hw['functionCode'] == 'PV':
-                    inverter_ids.add(hw_id)
-                elif hw['functionCode'] == 'WS':
-                    weatherstation_ids.add(hw_id)
+
+            for component in components:
+                component_id = component['id']
+
+                component_details[component_id] = {}
+                component_details[component_id]['name'] = str(component['name'])
+                component_details[component_id]['nodeType'] = str(component['nodeType'])
+                component_details[component_id]['parentId'] = str(component['parentId'])
+
+                if component['nodeType'] == 'METER':
+                    meter_ids.add(component_id)
+                elif component['nodeType'] == 'INVERTER':
+                    inverter_ids.add(component_id)
+
             run_time = time.time() - start
             self.__get_component_data_stats = self.__get_component_data_stats.append({ 'site_id': site_id, 'run_time': run_time }, ignore_index=True)
-            log("Right before log(hardware_details)")
-            log(hardware_details)
-            log(meter_ids)
-            log(inverter_ids)
-            log(weatherstation_ids)
-            return hardware_details, meter_ids, inverter_ids, weatherstation_ids
+            return component_details, meter_ids, inverter_ids
         except Exception as e:
-            log('Error in __get_site_hardware')
+            log('Error in __get_site_components')
             log(e)
-            return {}, set(), set(), set()
+            return {}, set(), set()
 
 
     def __get_meter_data(self, component_details: dict, meter_ids: set, intervaled_timestamps: list[list[str]]) -> dict[str, pd.DataFrame]:
@@ -143,7 +134,7 @@ class Powertrack(PowertrackApi):
         Iterate through the component_data and get the short_name information
             from it. Place it into arrays and then create a dataframe of it.
         
-        :param component_data: response from Powertrack containing data from a desired component
+        :param component_data: response from Locus containing data from a desired component
         :param short_name: list of short_names
         :return: dataframe containing all short_name data where the index is the timestamps
         """
@@ -182,7 +173,7 @@ class Powertrack(PowertrackApi):
         Iterating through the available_component_data list and extracting the desired
             short_names from it. 
 
-        :param available_component_data: response from Powertrack containing all basefields
+        :param available_component_data: response from Locus containing all basefields
             of a specific component. Example of the response in jsons folder
         :return: list of shorts_names
         """
@@ -346,119 +337,11 @@ class Powertrack(PowertrackApi):
         alerts = super()._get_site_alerts(site_id)
         return pd.DataFrame()
 
-    def __get_weatherstation_df_hardware(self, weatherstation_id, site_id,start_timestamp,end_timestamp):
-        poa=[]
-        bpoa=[]
-        ghi=[]
-        windspeed=[]
-        temperature=[]
-        weatherstation_details = super()._get_site_hardware_details(weatherstation_id)
-        weatherstation_name = weatherstation_details["name"]
-        for address in weatherstation_details["registerGroups"][0]['registers']:
-            if "dataName" not in address:
-                continue
-
-            if address["dataName"] == 'Sun' and re.search(r'\bbpoa\b', weatherstation_name, re.IGNORECASE):
-                log(f"{weatherstation_id} is BPOA, address is {address['address']}")
-                bpoa_data = super()._get_data_for_hardware(weatherstation_id, site_id, start_timestamp, end_timestamp, 'Sun','Avg')
-                bpoa.extend(bpoa_data['items'])
-            elif address["dataName"] == 'Sun':
-                log(f"{weatherstation_id} is POA, address is {address['address']}")
-                poa_data = super()._get_data_for_hardware(weatherstation_id, site_id, start_timestamp, end_timestamp, ['Sun','Sun2'],'Avg')
-                log(f"poa_data from super().get_data_for_hardware poa is {poa_data['items']}")
-                poa.extend(poa_data['items'])
-            if address["dataName"] == 'Sun2' and re.search(r'\bghi\b', weatherstation_name, re.IGNORECASE):
-                log(f"{weatherstation_id} contains Sun2, address is {address['address']}")
-                ghi_data = super()._get_data_for_hardware(weatherstation_id, site_id, start_timestamp, end_timestamp, 'Sun2','Avg')
-                ghi.extend(ghi_data['items'])
-            if address["dataName"] == 'WindSpeed':
-                log(f"{weatherstation_id} contains Windspeed, address is {address['address']}")
-                windspeed_data = super()._get_data_for_hardware(weatherstation_id, site_id, start_timestamp, end_timestamp,'WindSpeed','Avg')
-                windspeed.extend(windspeed_data['items'])
-            if address["dataName"] == 'TempF':
-                log(f"{weatherstation_id} contains Tempf, address is {address['address']}")
-                temperature_data = super()._get_data_for_hardware(weatherstation_id, site_id, start_timestamp, end_timestamp, "TempF",'Avg')
-                temperature.extend(temperature_data['items'])
-            else:
-                log(f"{weatherstation_id} don't contain any of these, it contains {weatherstation_details['registerGroups'][0]['registers']}")
-    
-        log("printing poa")
-        log(poa)
-        poa_df = pd.DataFrame(poa)
-        poa_df = poa_df.rename(columns ={'data': 'poa'})
-        bpoa_df = pd.DataFrame(bpoa)
-        bpoa_df = bpoa_df.rename(columns ={'data': 'bpoa'})
-        ghi_df = pd.DataFrame(ghi)
-        ghi_df = ghi_df.rename(columns ={'data': 'ghi'})
-        windspeed_df = pd.DataFrame(windspeed)
-        windspeed_df = windspeed_df.rename(columns = {'data': 'windspeed'})
-        temperature_df = pd.DataFrame(temperature)
-        temperature_df = temperature_df.rename(columns = {'data': 'temperature (celcius)'})
-        dfs = [poa_df, bpoa_df, ghi_df, windspeed_df, temperature_df]
-        non_empty_dfs = [df for df in dfs if not df.empty]
-
-        if non_empty_dfs:
-            weatherstation_hardware_df = non_empty_dfs[0]
-            for df in non_empty_dfs[1:]:
-                weatherstation_hardware_df = weatherstation_hardware_df.merge(df, on='timestamp', how='outer')
-        else:
-            print("All dataframes are empty. Skipping merge.")
-            weatherstation_hardware_df = None
-        if weatherstation_hardware_df is not None:
-            for column in weatherstation_hardware_df.columns:
-                if weatherstation_hardware_df[column].dtype == 'object':
-                    weatherstation_hardware_df[column] = weatherstation_hardware_df[column].apply(lambda x: x[0] if isinstance(x, list) and len(x) == 1 else x)
-            return weatherstation_hardware_df
-
-
-
-    def __get_weatherstation_df_site(self, weatherstation_ids, site_id, start_timestamp, end_timestamp):
-        try:
-            merged_df = None
-            for weatherstation in weatherstation_ids:
-                dataframe = self.__get_weatherstation_df_hardware(weatherstation, site_id, start_timestamp, end_timestamp)
-                if dataframe is not None:
-                    if merged_df is None:
-                        merged_df = dataframe
-                    else:
-                        merged_df = merged_df.merge(dataframe, on='timestamp', how='outer', suffixes=('', f'_from_{weatherstation}'))
-            if merged_df is None:
-                return pd.DataFrame()
-            poa_columns = [col for col in merged_df.columns if 'poa' in col and col != 'poa']
-            if len(poa_columns) > 1:
-                poa_diff = merged_df[poa_columns].max(axis=1) - merged_df[poa_columns].min(axis=1)
-                merged_df['poa'] = merged_df[poa_columns].apply(lambda row: row.max() if row.max() - row.min() >= 100 else row.mean(), axis=1)
-                merged_df = merged_df.drop(columns=poa_columns)
-            elif len(poa_columns) == 1:
-                merged_df['poa'] += merged_df[poa_columns[0]]
-                merged_df = merged_df.drop(columns=poa_columns)
-            return merged_df
-        except Exception as e:
-            log(f'exception is {e}')
-
-    def __get_meter_df_site(self, meter_ids, site_id, start_timestamp, end_timestamp ):
-        meter_df = pd.DataFrame()
-        for meter in meter_ids:
-            meter_production_data = super()._get_data_for_hardware(meter, site_id, start_timestamp, end_timestamp, 'KWHDel','Avg')
-            temp_df = pd.json_normalize(meter_production_data, record_path = ['items'])
-            temp_df['meter_id'] = meter
-            temp_df = temp_df.rename(columns ={'data': 'production'})
-            meter_df = pd.concat([meter_df,temp_df])
-        meter_df['production'] = meter_df['production'].apply(lambda x: x[0] if isinstance(x, list) and len(x) == 1 else x)
-        meter_df['production'] = pd.to_numeric(meter_df['production'], errors='coerce')
-        sum_of_meter_production = meter_df.groupby('timestamp')['production'].sum()
-        sum_dict = sum_of_meter_production.to_dict()
-        meter_df['production_sum'] = meter_df['timestamp'].map(sum_dict)
-        meter_df = meter_df.sort_values(by ='timestamp')
-        meter_df['production'] = meter_df['production'].round(2)
-        meter_df['production_sum'] = meter_df['production_sum'].round(2)
-        return meter_df
-
 
     def testme(self):
-        # PowertrackApi._testme(self)
+        # LocusApi._testme(self)
         super()._testme()
-        print("Running Powertrack Test...")
+        print("Running Locus Test...")
 
         try:
             cd, md, ic = self.__get_site_components('3678856')
@@ -466,68 +349,46 @@ class Powertrack(PowertrackApi):
             print(md)
             print(ic)
         except Exception as e:
-            log(f'exception is {e}')
+            log(e)
 
 
     def mock_main(self, proforma_df):
         """Used as a mock main, similar to testme but should be more concrete here"""
 
         mock_main_start_time = time.time()
-        now = get_time_now()
+
         # "Wh_sum", 
         count = 0
-        proforma_df = proforma_df[proforma_df['monitoring_platform'] == 'PowerTrack'].astype({"site_id": np.int64})
+        proforma_df = proforma_df[proforma_df['monitoring_platform'] == 'Locus'].astype({"site_id": int})
         unique_proforma = proforma_df.drop_duplicates('asset_id', keep='first')
         all_basefields = []
-        site_data_df = pd.DataFrame()
-        proforma_df = { 'site_id': ['38054'] }
-        #for site_id in proforma_df['site_id']:
+        # proforma_df = { 'site_id': ['3892217'] }
+        # for site_id in proforma_df['site_id']:
         for index, row in unique_proforma.iterrows():
             try:
                 site_start_time = time.time()
                 log('================================================================================================================================')
                 site_id = row['site_id']
-                if site_id != 33184:
-                    continue
-                log(f'site_id: {site_id}')
-                site_details = super()._get_site_details(site_id)
-                log(f'site_details is {site_details}')
-                if "error" in site_details:
-                    log(f'cannot get site_details for {site_id}, skipping site')
-                    continue
-                site_name = site_details["name"]
+                # if site_id != 3892217:
+                #     continue
                 start_timestamp = reformat_date_to_timestamp(row['start_date'])
                 end_timestamp = get_todays_timestamp()
-                hardware_details, meter_ids, inverter_ids, weatherstation_ids = self.__get_site_hardware(site_id)
-                log(meter_ids)
-                weatherstation_site_df = pd.DataFrame()
-                weatherstation_site_df = self.__get_weatherstation_df_site( weatherstation_ids, site_id, start_timestamp, end_timestamp)
-                meter_site_df =  self.__get_meter_df_site(meter_ids, site_id, start_timestamp, end_timestamp)
-                meter_and_weatherstation_df = meter_site_df.merge(weatherstation_site_df, on='timestamp', how='outer')
-                meter_and_weatherstation_df['site_id'] = site_id
-                meter_and_weatherstation_df['name'] = site_name
-                site_data_df = pd.concat([site_data_df,meter_and_weatherstation_df])
 
+                component_details, meter_ids, inverter_ids = self.__get_site_components(site_id)
+                intervaled_timestamps, all_timestamps = get_timestamps(start_timestamp)
+                meter_name_to_production_data = self.__get_meter_data(component_details, meter_ids, intervaled_timestamps)
+                aggregated_component_df = self.__sum_component_data(meter_name_to_production_data)
 
-
-
-
-                #formatted_data = data[]
-                # component_details, meter_ids, inverter_ids = self.__get_site_components(site_id)
-                # intervaled_timestamps, all_timestamps = get_timestamps(start_timestamp)
-                # meter_name_to_production_data = self.__get_meter_data(component_details, meter_ids, intervaled_timestamps)
-                # aggregated_component_df = self.__sum_component_data(meter_name_to_production_data)
-
-                # # TODO: Find out what to do with unique profroma and how to handle the two proforma dataframes!
-                # proforma_information = self.__get_daily_averages_of_monthly_proformas(row['asset_id'], start_timestamp, end_timestamp, proforma_df)
+                # TODO: Find out what to do with unique profroma and how to handle the two proforma dataframes!
+                proforma_information = self.__get_daily_averages_of_monthly_proformas(row['asset_id'], start_timestamp, end_timestamp, proforma_df)
                 
-                # short_names = np.fromiter(self.__weatherstation_short_names.keys(), dtype=np.dtype('U32'))
-                # site_poa_insolation_data_df = self.__get_weatherstation_data(component_details, intervaled_timestamps, short_names)
-                # now = get_time_now()
-                # site_poa_insolation_data_df.to_csv(f'csvs/site_poa_insolation_data_df_{site_id}_{now}.csv')
+                short_names = np.fromiter(self.__weatherstation_short_names.keys(), dtype=np.dtype('U32'))
+                site_poa_insolation_data_df = self.__get_weatherstation_data(component_details, intervaled_timestamps, short_names)
+                now = get_time_now()
+                site_poa_insolation_data_df.to_csv(f'csvs/site_poa_insolation_data_df_{site_id}_{now}.csv')
 
-                # # get site data
-                # expected_site_data = self.__get_expected_site_data(site_id, intervaled_timestamps)
+                # get site data
+                expected_site_data = self.__get_expected_site_data(site_id, intervaled_timestamps)
 
                 # self.__get_alerts(site_id, intervaled_timestamps)
                 count += 1
@@ -536,16 +397,14 @@ class Powertrack(PowertrackApi):
                 self.__site_stats = self.__site_stats.append({ 'site_id': site_id, 'run_time': site_run_time }, ignore_index=True)
 
             except Exception as e:
-                log('e in exception below')
                 log(e)
-                log('e in exception above')
             finally:
                 count += 1
-                if count > 15:
+                if count > 2:
                     break
-        log(f'site_data_df is {site_data_df}')
-        site_data_df = site_data_df.sort_values(by=['site_id','timestamp'])
-        site_data_df.to_csv(f'csvs/site_data_df{now}.csv', index=False)
+    
         mock_main_run_time = time.time() - mock_main_start_time
         log(f'Runtime of mock_main: {mock_main_run_time} ({mock_main_run_time / 60} minutes)')
-        self.__deconstructor()
+        print(self.__site_stats)
+        print(self.__get_component_data_stats)
+        #self.__deconstructor()

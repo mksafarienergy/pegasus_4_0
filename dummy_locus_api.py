@@ -197,25 +197,27 @@ class LocusApi():
         return response['baseFields']
 
 
-    def _get_site_alerts(self, site_id:str) -> list[dict]:
-        """"""
-        url = f'{self.__base_url}/sites/{site_id}/alerts?tz=UTC'
+    # def _get_site_alerts(self, site_id:str) -> list[dict]:
+    #     """"""
+    #     url = f'{self.__base_url}/sites/{site_id}/alerts?tz=UTC'
 
-        response = self.__use_session(url)
-        log(response)
-        return response
+    #     response = self.__use_session(url)
+    #     log(response)
+    #     return response
 
 
     def _testme(self):
         """Used to test out the functions above"""
 
         timestamps = get_timestamps("2022-3-14T00:00:00")
+        print("TESTING TIMESTAMPS")
+        print(timestamps)
         log("hrllvdvf")
-        # test1 = self._get_data_for_site('3822685', timestamps, 'Wh_sum')
+        test1 = self._get_data_for_site('3822685', timestamps[0], 'Wh_sum')
         # test2 = self._get_site_components('3822685')
         # test3 = self._get_data_for_component('2590683', timestamps, 'Wh_sum')
-        test4 = self._get_data_available_for_component('2590683')
-
-        # print(test1)
+        #test4 = self._get_data_available_for_component('2590683')
+        print('TESTIN TEST1')
+        print(test1)
         # print(test2)
         # print(test3)

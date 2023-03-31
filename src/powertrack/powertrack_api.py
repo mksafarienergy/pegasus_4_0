@@ -89,11 +89,15 @@ class PowertrackApi():
         return res_json
     
 
-    def __use_session_post(self, url: str, body: list[dict]) -> dict:
+    def __use_session_post(self, url: str, body: list[dict], header=None) -> dict:
         """"""
         log(f'Endpoint: {url}')
         start = time.time()
-        res = self.__session.post(url, data=str(body))
+        if header:
+            res = self.__session.post(url, data=str(body),headers=header)
+        else:
+            res = self.__session.post(url, data=str(body))
+        log(f'powertrack.py, __use_session_post: response is {res}')
         res_json = json.loads(res.text)
 
         if 'statusCode' in res_json:
@@ -150,10 +154,27 @@ class PowertrackApi():
         url = f'{self.__base_url}/sites/{str(site_id)}/Hardware'
 
         response = self.__use_session_get(url)
-        # return response['components']
+        return response['hardware']
+        #return response['components']
 
+    def _get_site_hardware_details(self, hardwareid: str):
+        """Gets all the components for a specific site"""
 
-    def _get_data_for_hardware(self, hardware_id: str, site_id: str, start_timestamp: str, end_timestamp: str, field_name: str, hw_function: str = 'Diff') -> list:
+        url = f'{self.__base_url}/Hardware/{str(hardwareid)}'
+
+        response = self.__use_session_get(url)
+        return response
+    
+    def _get_site_details(self, site_id: str):
+        """Gets all the components for a specific site"""
+
+        url = f'{self.__base_url}/Sites/{str(site_id)}'
+
+        response = self.__use_session_get(url)
+        return response
+
+    
+    def _get_data_for_hardware(self, hardware_id: str, site_id: str, start_timestamp: str, end_timestamp: str, field_name: str, hw_function: str = 'Diff'):
         """
         Iterates through the split_timestamps list and gets the first and last elements of the 
             current iteration to make start and end dates. Then hits an endpoint to get data 
@@ -166,23 +187,19 @@ class PowertrackApi():
         :param short_name: the specific datapoint we are trying to get
         :return: list of dicts (responses from the endpoint)
         """
-
         responses = []
 
         # for timestamps in intervaled_timestamps:
         url = f'{self.__base_url}/v2/Data/BinData?'
         url += f'from={start_timestamp}'
         url += f'&to={end_timestamp}'
-        url += '&tz=UTC&gran=daily'
-        url += '&binSizes=Bin5Min'
-
-        body = [ { 'hardwareId': hardware_id, 'siteId': site_id, 'fieldName': field_name, 'function': hw_function } ]
-
-        response = self.__use_session_post(url, body)
-        log(response)
-        responses.extend(response['data'])
-            
-        return responses
+        url += '&binSizes=BinDay'
+        url += '&tz=utc' 
+        body = [{ 'hardwareId': hardware_id, 'siteId': site_id, 'fieldName': field_name, 'function': hw_function }]
+        header = {"Content-Type": "application/json"}
+        log(f'powertrack_api.py, _get_data_for_hardware: body is {body}')
+        response = self.__use_session_post(url, body, header)
+        return response
 
 
     def _get_data_available_for_component(self, component_id: str) -> list[dict]:

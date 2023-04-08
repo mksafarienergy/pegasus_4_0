@@ -3,7 +3,7 @@ import requests
 import time
 
 import pandas as pd
-
+from dateutil.relativedelta import relativedelta
 from utils import *
 from src.logger.logger import *
 
@@ -29,6 +29,9 @@ class PowertrackApi():
         self.__refresh_token = None
         self.__create_powertrack_session()
         self.__api_stats = pd.DataFrame(columns=['url', 'run_time'])
+        self.__binsize = 'Bin5Min'
+        self.__start_timestamp = ''
+        self.__end_timestamp = ''
         log(self.__access_token)
         log(self.__refresh_token)
         log('Constructor finished for PowertrackApi')
@@ -46,13 +49,71 @@ class PowertrackApi():
         log('Deconstructor for PowertrackApi')
 
 
+    def _set_binsize(self, hardware_id: str,  site_id: str, timeframe="5min") -> None:
+        """
+        Test API call (call get_data_for_hardware )for binsize where you get production level data.
+        Try first with 5 min, if return 400 use 15 min
+        """
+        try:
+            if timeframe == '5min':
+                log('Timeframe is set to 5min')
+                today_datetime = convert_timestamp_to_datetime(self.__end_timestamp)
+                one_month_ago = today_datetime - relativedelta(months=1)
+                last_month_timestamp = one_month_ago.strftime("%Y-%m-%dT%H:%M:%S")
+                hardware_data = self._get_data_for_hardware(hardware_id, site_id, last_month_timestamp, self.__end_timestamp, 'KWHDel')
+                if "error" in hardware_data:
+                    log(last_month_timestamp)
+                    log(self.__end_timestamp)
+                    log(hardware_data)
+                    timeframe = '15min'
+                else:
+                    self.__start_timestamp = last_month_timestamp
+            
+            if timeframe == '15min':
+                log('Timeframe is set to 15min')
+                today_datetime = convert_timestamp_to_datetime(self.__end_timestamp)
+                one_month_ago = today_datetime - relativedelta(months=1)
+                last_3month_timestamp = one_month_ago.strftime("%Y-%m-%dT%H:%M:%S")
+                hardware_data = self._get_data_for_hardware(hardware_id, site_id, last_3month_timestamp, self.__end_timestamp, 'KWHDel')
+                if "error" in hardware_data:
+                    log(last_3month_timestamp)
+                    log(self.__end_timestamp)
+                    log(hardware_data)
+                    timeframe = 'Day'
+                else:
+                    self.__start_timestamp = last_3month_timestamp
+                    self.__binsize = 'Bin15Min'
+
+
+            if timeframe == 'Day':
+                log("else")
+                self.__binsize = 'BinDay'
+                pass
+            else:
+                log('invalid timeframe in _set_binsize()')
+
+        except Exception as e:
+            log(f'Error in _set_binsize: {e}')
+
+
     def __create_powertrack_session(self) -> None:
         self.__generate_tokens()
 
         self.__session = requests.Session()
         self.__session.headers.update(self.__headers)
 
-
+    def _get_start_timestamp(self):
+        return self.__start_timestamp
+    
+    def _get_end_timestamp(self):
+        return self.__end_timestamp
+    
+    def _set_start_timestamp(self, timestamp):
+        self.__start_timestamp = timestamp
+    
+    def _set_end_timestamp(self, timestamp):
+        self.__end_timestamp = timestamp
+    
     def __generate_tokens(self) -> None:
         """Generating initial session using login"""
 
@@ -155,7 +216,7 @@ class PowertrackApi():
 
         response = self.__use_session_get(url)
         return response['hardware']
-        #return response['components']
+
 
     def _get_site_hardware_details(self, hardwareid: str):
         """Gets all the components for a specific site"""
@@ -165,6 +226,7 @@ class PowertrackApi():
         response = self.__use_session_get(url)
         return response
     
+
     def _get_site_details(self, site_id: str):
         """Gets all the components for a specific site"""
 
@@ -193,7 +255,8 @@ class PowertrackApi():
         url = f'{self.__base_url}/v2/Data/BinData?'
         url += f'from={start_timestamp}'
         url += f'&to={end_timestamp}'
-        url += '&binSizes=BinDay'
+        url += f'&binSizes={self.__binsize}'
+        # url += '&binSizes=BinDay'
         url += '&tz=utc' 
         body = [{ 'hardwareId': hardware_id, 'siteId': site_id, 'fieldName': field_name, 'function': hw_function }]
         header = {"Content-Type": "application/json"}

@@ -53,6 +53,7 @@ class Powertrack(PowertrackApi):
         self.__site_stats.to_csv(f'csvs/__site_stats_{now}.csv')
         log('Deconstructor for Powertrack')
 
+
     
     def __get_site_hardware(self, site_id: str) -> tuple[dict, set, set, set]:
         """
@@ -153,60 +154,61 @@ class Powertrack(PowertrackApi):
         :param start_timestamp: the starting timestamp. Format is yyyy-mm-dd hh:mm:ss 
         :param end_timestamp: the ending timestamp. Format is yyyy-mm-dd hh:mm:ss 
         """
+        try:
+            poa=[]
+            bpoa=[]
+            ghi=[]
+            windspeed=[]
+            temperature=[]
+            weatherstation_details = super()._get_site_hardware_details(weatherstation_id)
+            weatherstation_name = weatherstation_details["name"]
 
-        poa=[]
-        bpoa=[]
-        ghi=[]
-        windspeed=[]
-        temperature=[]
-        weatherstation_details = super()._get_site_hardware_details(weatherstation_id)
-        weatherstation_name = weatherstation_details["name"]
+            for address in weatherstation_details["registerGroups"][0]['registers']:
+                if "dataName" not in address:
+                    continue
 
-        for address in weatherstation_details["registerGroups"][0]['registers']:
-            if "dataName" not in address:
-                continue
-
-            if address["dataName"] == 'Sun' and re.search(r'\bbpoa\b', weatherstation_name, re.IGNORECASE):
-                #log(f"{weatherstation_id} is BPOA, address is {address['address']}")
-                bpoa_data = super()._get_data_for_hardware(weatherstation_id, site_id, start_timestamp, end_timestamp, 'Sun','Avg')
-                bpoa.extend(bpoa_data['items'])
-            elif address["dataName"] == 'Sun':
-                #log(f"{weatherstation_id} is POA, address is {address['address']}")
-                poa_data = super()._get_data_for_hardware(weatherstation_id, site_id, start_timestamp, end_timestamp, 'Sun','Avg')
-                #log(f"poa_data from super().get_data_for_hardware poa is {poa_data['items']}")
-                poa.extend(poa_data['items'])
-            elif address["dataName"] == 'Sun2' and re.search(r'\bghi\b', weatherstation_name, re.IGNORECASE):
-                #log(f"{weatherstation_id} contains Sun2, address is {address['address']}")
-                ghi_data = super()._get_data_for_hardware(weatherstation_id, site_id, start_timestamp, end_timestamp, 'Sun2','Avg')
-                ghi.extend(ghi_data['items'])
-            elif address["dataName"] == 'WindSpeed':
-                #log(f"{weatherstation_id} contains Windspeed, address is {address['address']}")
-                windspeed_data = super()._get_data_for_hardware(weatherstation_id, site_id, start_timestamp, end_timestamp,'WindSpeed','Avg')
-                windspeed.extend(windspeed_data['items'])
-                #log(f'windspeed_data is {windspeed_data}')
-            elif address["dataName"] == 'TempF':
-                #log(f"{weatherstation_id} contains Tempf, address is {address['address']}")
-                temperature_data = super()._get_data_for_hardware(weatherstation_id, site_id, start_timestamp, end_timestamp, "TempF",'Avg')
-                log(f"temperature unit is {temperature_data['info'][0]['units']}")
-                if temperature_data['info'][0]['units'] == 'Fahrenheit':
-                    celcius_data_list = []
-                    for data_entry in temperature_data['items']:
-                        timestamp = data_entry['timestamp']
-                        fahrenheit = data_entry['data'][0]
-                        celsius = self.__fahrenheit_to_celsius(fahrenheit)
-                        celcius_data_list.append({'timestamp': timestamp, 'data': [celsius]})
-                    #print(f'celcius list is {celcius_data_list}')
-                    temperature.extend(celcius_data_list)
-                else:
-                    temperature.extend(temperature_data['items'])
-                log('test')
-                log(f'temperature_data is {temperature_data}')
-            # else:
-            #     log(f"{weatherstation_id} don't contain any of these, it contains {weatherstation_details['registerGroups'][0]['registers']}")
-    
-        dfs = self.__initialize_feature_df_from_data(poa,bpoa,ghi,windspeed,temperature)
-        weatherstation_hardware_df = self.__merge_weatherstation_dfs(dfs)
-        return weatherstation_hardware_df
+                if address["dataName"] == 'Sun' and re.search(r'\bbpoa\b', weatherstation_name, re.IGNORECASE):
+                    #log(f"{weatherstation_id} is BPOA, address is {address['address']}")
+                    bpoa_data = super()._get_data_for_hardware(weatherstation_id, site_id, start_timestamp, end_timestamp, 'Sun','Avg')
+                    bpoa.extend(bpoa_data['items'])
+                elif address["dataName"] == 'Sun':
+                    #log(f"{weatherstation_id} is POA, address is {address['address']}")
+                    poa_data = super()._get_data_for_hardware(weatherstation_id, site_id, start_timestamp, end_timestamp, 'Sun','Avg')
+                    #log(f"poa_data from super().get_data_for_hardware poa is {poa_data['items']}")
+                    poa.extend(poa_data['items'])
+                elif address["dataName"] == 'Sun2' and re.search(r'\bghi\b', weatherstation_name, re.IGNORECASE):
+                    #log(f"{weatherstation_id} contains Sun2, address is {address['address']}")
+                    ghi_data = super()._get_data_for_hardware(weatherstation_id, site_id, start_timestamp, end_timestamp, 'Sun2','Avg')
+                    ghi.extend(ghi_data['items'])
+                elif address["dataName"] == 'WindSpeed':
+                    #log(f"{weatherstation_id} contains Windspeed, address is {address['address']}")
+                    windspeed_data = super()._get_data_for_hardware(weatherstation_id, site_id, start_timestamp, end_timestamp,'WindSpeed','Avg')
+                    windspeed.extend(windspeed_data['items'])
+                    #log(f'windspeed_data is {windspeed_data}')
+                elif address["dataName"] == 'TempF':
+                    #log(f"{weatherstation_id} contains Tempf, address is {address['address']}")
+                    temperature_data = super()._get_data_for_hardware(weatherstation_id, site_id, start_timestamp, end_timestamp, "TempF",'Avg')
+                    log(f"temperature unit is {temperature_data['info'][0]['units']}")
+                    if temperature_data['info'][0]['units'] == 'Fahrenheit':
+                        celcius_data_list = []
+                        for data_entry in temperature_data['items']:
+                            timestamp = data_entry['timestamp']
+                            fahrenheit = data_entry['data'][0]
+                            celsius = self.__fahrenheit_to_celsius(fahrenheit)
+                            celcius_data_list.append({'timestamp': timestamp, 'data': [celsius]})
+                        #print(f'celcius list is {celcius_data_list}')
+                        temperature.extend(celcius_data_list)
+                    else:
+                        temperature.extend(temperature_data['items'])
+                    #log(f'temperature_data is {temperature_data}')
+                # else:
+                #     log(f"{weatherstation_id} don't contain any of these, it contains {weatherstation_details['registerGroups'][0]['registers']}")
+        
+            dfs = self.__initialize_feature_df_from_data(poa,bpoa,ghi,windspeed,temperature)
+            weatherstation_hardware_df = self.__merge_weatherstation_dfs(dfs)
+            return weatherstation_hardware_df
+        except Exception as e:
+            log(f'error inside __get_weatherstation_df_by_hardware: {e}')
     
     def __fahrenheit_to_celsius(self, fahrenheit):
         """
@@ -275,7 +277,6 @@ class Powertrack(PowertrackApi):
                     visited.add(ts)
                     poas = [poa]
                     for j, df2 in enumerate(dataframes):
-
                         if not re.search(r'\bpoa\b', ' '.join(df2.columns), re.IGNORECASE):
                             #log(f'skipping df because columns do not contain poa, columns are {df2.columns}')
                             continue
@@ -325,6 +326,7 @@ class Powertrack(PowertrackApi):
         dfs = [poa_df, bpoa_df, ghi_df, windspeed_df, temperature_df]
         return dfs
     
+
     def __transform_object_to_numeric(self,x):
         """
         Returns the data inside a list x. If it is not a list, return the x
@@ -339,6 +341,7 @@ class Powertrack(PowertrackApi):
             else:
                 return x[0]
         return x
+
 
     def __get_weatherstation_df_by_site(self, weatherstation_ids, site_id, start_timestamp, end_timestamp):
         """
@@ -371,6 +374,7 @@ class Powertrack(PowertrackApi):
         except Exception as e:
             log(f'exception from __get_weatherstation_df_by_site is {e}')
 
+
     def __get_meter_df_site(self, meter_ids, site_id, start_timestamp, end_timestamp ):
         """
         Returns meter dataframe for a given site
@@ -383,7 +387,9 @@ class Powertrack(PowertrackApi):
         """
         meter_df = pd.DataFrame()
         for meter in meter_ids:
-            meter_production_data = super()._get_data_for_hardware(meter, site_id, start_timestamp, end_timestamp, 'KWHDel','Avg')
+            meter_details = super()._get_site_hardware_details(meter)
+            log(f'meter_detailsa are {meter_details}')
+            meter_production_data = super()._get_data_for_hardware(meter, site_id, start_timestamp, end_timestamp, 'KWHDel','Diff')
             temp_df = pd.json_normalize(meter_production_data, record_path = ['items'])
             temp_df['meter_id'] = meter
             temp_df = temp_df.rename(columns ={'data': 'production'})
@@ -400,6 +406,7 @@ class Powertrack(PowertrackApi):
         log(f'meter_df is {meter_df}')
         return meter_df
 
+
     def testme(self):
         # PowertrackApi._testme(self)
         super()._testme()
@@ -412,6 +419,7 @@ class Powertrack(PowertrackApi):
             print(ic)
         except Exception as e:
             log(f'exception is {e}')
+
 
     def mock_main(self, proforma_df):
         """Used as a mock main, similar to testme but should be more concrete here"""
@@ -430,8 +438,8 @@ class Powertrack(PowertrackApi):
                 site_start_time = time.time()
                 log('================================================================================================================================')
                 site_id = row['site_id']
-                # if site_id != 58481:
-                #     continue
+                if site_id != 58481:
+                    continue
                 log(f'site_id: {site_id}')
                 site_details = super()._get_site_details(site_id)
                 log(f'site_details is {site_details}')
@@ -439,13 +447,16 @@ class Powertrack(PowertrackApi):
                     log(f'cannot get site_details for {site_id}, skipping site')
                     continue
                 site_name = site_details["name"]
-                start_timestamp = reformat_date_to_timestamp(row['start_date'])
-                end_timestamp = get_todays_timestamp()
+                super()._set_start_timestamp(reformat_date_to_timestamp(row['start_date']))
+                super()._set_end_timestamp(get_todays_timestamp()) 
                 hardware_details, meter_ids, inverter_ids, weatherstation_ids = self.__get_site_hardware(site_id)
                 log(f'meter_ids are {meter_ids}')
+                super()._set_binsize(next(iter(meter_ids)),site_id,'15min')
+                log(super()._get_start_timestamp())
+                log(f'parent timeframe is {super()._get_start_timestamp(), super()._get_end_timestamp()}')
                 weatherstation_site_df = pd.DataFrame()
-                weatherstation_site_df = self.__get_weatherstation_df_by_site( weatherstation_ids, site_id, start_timestamp, end_timestamp)
-                meter_site_df =  self.__get_meter_df_site(meter_ids, site_id, start_timestamp, end_timestamp)
+                weatherstation_site_df = self.__get_weatherstation_df_by_site( weatherstation_ids, site_id, super()._get_start_timestamp(), super()._get_end_timestamp())
+                meter_site_df =  self.__get_meter_df_site(meter_ids, site_id, super()._get_start_timestamp(), super()._get_end_timestamp())
                 if weatherstation_site_df is None:
                     continue
                 meter_and_weatherstation_df = meter_site_df.merge(weatherstation_site_df, on='timestamp', how='outer')

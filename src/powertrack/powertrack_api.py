@@ -17,7 +17,7 @@ class PowertrackApi():
         self.__grant_type_password = 'password'
         self.__grant_type_refresh = 'refresh_token'
         self.__username = 'mkajoshaj@aspenpower.com'
-        self.__password = 'SafariEnergy202#'
+        self.__password = 'SafariEnergy202$'
         self.__client_id = '5b7bc63684c19388e1d253565cb99980'
         self.__client_secret = 'c653512c7190315d6ecf008da9ee3f33'
         self.__headers = {
@@ -29,7 +29,7 @@ class PowertrackApi():
         self.__refresh_token = None
         self.__create_powertrack_session()
         self.__api_stats = pd.DataFrame(columns=['url', 'run_time'])
-        self.__binsize = 'Bin5Min'
+        self.__binsize = 'BinDay'
         self.__start_timestamp = ''
         self.__end_timestamp = ''
         log(self.__access_token)
@@ -49,48 +49,68 @@ class PowertrackApi():
         log('Deconstructor for PowertrackApi')
 
 
-    def _set_binsize(self, hardware_id: str,  site_id: str, timeframe="5min") -> None:
+    def _set_binsize(self, hardware_id: str,  site_id: str, timeframe="5min", start_timestamp = None, end_timestamp = None ) -> None:
         """
         Test API call (call get_data_for_hardware )for binsize where you get production level data.
-        Try first with 5 min, if return 400 use 15 min
+        Try first with 5 min, if error try 15min, and if error try 1Day.
+
+        :param: hardware_id: the id of the hardware we are retrieving the data from
+        :param: site_id: the id of the site we are retrieving data from
+        :param: timeframe: the timeframe we want to use to retrieve data
         """
         try:
             if timeframe == '5min':
                 log('Timeframe is set to 5min')
-                today_datetime = convert_timestamp_to_datetime(self.__end_timestamp)
-                one_month_ago = today_datetime - relativedelta(months=1)
-                last_month_timestamp = one_month_ago.strftime("%Y-%m-%dT%H:%M:%S")
-                hardware_data = self._get_data_for_hardware(hardware_id, site_id, last_month_timestamp, self.__end_timestamp, 'KWHDel')
+                self.__binsize = 'Bin5Min'
+                if start_timestamp is None or end_timestamp is None: 
+                    log(f'start_timestamp or end_timestamp is None')            
+                    today_timestamp = get_todays_timestamp()
+                    today_datetime = convert_timestamp_to_datetime(self.__end_timestamp)
+                    one_month_ago = today_datetime - relativedelta(months=1)
+                    last_month_timestamp = one_month_ago.strftime("%Y-%m-%dT%H:%M:%S")
+                    self.__start_timestamp = last_month_timestamp
+                    self.__end_timestamp = today_timestamp
+                else:
+                    self.__start_timestamp = start_timestamp 
+                    self.__end_timestamp = end_timestamp
+                hardware_data = self._get_data_for_hardware(hardware_id, site_id, self.__start_timestamp, self.__end_timestamp, 'KWHDel') # type: ignore
                 if "error" in hardware_data:
-                    log(last_month_timestamp)
-                    log(self.__end_timestamp)
+                    log(f'5min timeframe not available for {site_id}, moving on to 15min')
+
                     log(hardware_data)
                     timeframe = '15min'
-                else:
-                    self.__start_timestamp = last_month_timestamp
-            
+
             if timeframe == '15min':
                 log('Timeframe is set to 15min')
-                today_datetime = convert_timestamp_to_datetime(self.__end_timestamp)
-                one_month_ago = today_datetime - relativedelta(months=1)
-                last_3month_timestamp = one_month_ago.strftime("%Y-%m-%dT%H:%M:%S")
-                hardware_data = self._get_data_for_hardware(hardware_id, site_id, last_3month_timestamp, self.__end_timestamp, 'KWHDel')
-                if "error" in hardware_data:
-                    log(last_3month_timestamp)
-                    log(self.__end_timestamp)
-                    log(hardware_data)
-                    timeframe = 'Day'
-                else:
+                self.__binsize = 'Bin15Min'  
+                if start_timestamp is None or end_timestamp is None:     
+                    log(f'start_timestamp or end_timestamp is None')      
+                    log(f'they are {start_timestamp, end_timestamp}')      
+                    today_timestamp = get_todays_timestamp()
+                    today_datetime = convert_timestamp_to_datetime(self.__end_timestamp)
+                    one_month_ago = today_datetime - relativedelta(months=1)
+                    last_3month_timestamp = one_month_ago.strftime("%Y-%m-%dT%H:%M:%S")
                     self.__start_timestamp = last_3month_timestamp
-                    self.__binsize = 'Bin15Min'
-
+                    self.__end_timestamp = today_timestamp
+                else:
+                    self.__start_timestamp = start_timestamp 
+                    self.__end_timestamp = end_timestamp
+                hardware_data = self._get_data_for_hardware(hardware_id, site_id, self.__start_timestamp, self.__end_timestamp, 'KWHDel') # type: ignore
+                if "error" in hardware_data:
+                    log(f'15min timeframe not available for {site_id}, moving on to Day')                    
+                    timeframe = 'Day'
 
             if timeframe == 'Day':
-                log("else")
-                self.__binsize = 'BinDay'
-                pass
-            else:
-                log('invalid timeframe in _set_binsize()')
+                log('Timeframe is set to Day')
+                self.__binsize = 'BinDay'                  
+                if start_timestamp is not None and end_timestamp is not None:    
+                    self.__start_timestamp = start_timestamp
+                    self.__end_timestamp = end_timestamp
+                hardware_data = self._get_data_for_hardware(hardware_id, site_id, self.__start_timestamp, self.__end_timestamp, 'KWHDel') # type: ignore
+                if "error" in hardware_data:
+                    log(f'1Day timeframe not available for {site_id}, throwing error')                    
+                    raise Exception('cannot retrieve data for 5min, 15min, or day.')    
+
 
         except Exception as e:
             log(f'Error in _set_binsize: {e}')
@@ -103,16 +123,46 @@ class PowertrackApi():
         self.__session.headers.update(self.__headers)
 
     def _get_start_timestamp(self):
+        """
+        Returns the start_timestamp of PowertrackApi()
+        """
+
         return self.__start_timestamp
     
     def _get_end_timestamp(self):
+        """
+        Returns the end_timestamp of PowertrackApi()
+        """
+        
         return self.__end_timestamp
     
     def _set_start_timestamp(self, timestamp):
+        """
+        Sets the start_timestamp of PowertrackApi()
+        """
+        
         self.__start_timestamp = timestamp
     
     def _set_end_timestamp(self, timestamp):
+        """
+        Sets the end_timestamp of PowertrackApi()
+        """
+        
         self.__end_timestamp = timestamp
+
+    def _reset_binsize(self):
+        """
+        Reset __binsize of PowertrackApi() to Bin5Min
+        """
+        
+        self.__binsize = 'Bin5Min'
+
+    def _get_binsize(self):
+        """
+        get __binsize of PowertrackApi() 
+        """
+        
+        return self.__binsize
     
     def __generate_tokens(self) -> None:
         """Generating initial session using login"""
@@ -121,6 +171,7 @@ class PowertrackApi():
 
         res = requests.request("POST", self.__auth_url, data=access_token_data, headers=self.__headers)
         res_data = json.loads(res.text)
+        #log(f'res_data is {res_data}')
         self.__access_token = res_data['access_token']
 
         self.__headers["Authorization"] = f'Bearer {self.__access_token}'
@@ -252,11 +303,11 @@ class PowertrackApi():
         responses = []
 
         # for timestamps in intervaled_timestamps:
+        log(f'binsize is {self.__binsize}')
         url = f'{self.__base_url}/v2/Data/BinData?'
         url += f'from={start_timestamp}'
         url += f'&to={end_timestamp}'
         url += f'&binSizes={self.__binsize}'
-        # url += '&binSizes=BinDay'
         url += '&tz=utc' 
         body = [{ 'hardwareId': hardware_id, 'siteId': site_id, 'fieldName': field_name, 'function': hw_function }]
         header = {"Content-Type": "application/json"}

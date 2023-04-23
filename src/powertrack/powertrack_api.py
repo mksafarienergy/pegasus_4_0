@@ -122,6 +122,7 @@ class PowertrackApi():
         self.__session = requests.Session()
         self.__session.headers.update(self.__headers)
 
+
     def _get_start_timestamp(self):
         """
         Returns the start_timestamp of PowertrackApi()
@@ -129,6 +130,7 @@ class PowertrackApi():
 
         return self.__start_timestamp
     
+
     def _get_end_timestamp(self):
         """
         Returns the end_timestamp of PowertrackApi()
@@ -136,6 +138,7 @@ class PowertrackApi():
         
         return self.__end_timestamp
     
+
     def _set_start_timestamp(self, timestamp):
         """
         Sets the start_timestamp of PowertrackApi()
@@ -143,12 +146,14 @@ class PowertrackApi():
         
         self.__start_timestamp = timestamp
     
+
     def _set_end_timestamp(self, timestamp):
         """
         Sets the end_timestamp of PowertrackApi()
         """
         
         self.__end_timestamp = timestamp
+
 
     def _reset_binsize(self):
         """
@@ -157,6 +162,7 @@ class PowertrackApi():
         
         self.__binsize = 'Bin5Min'
 
+
     def _get_binsize(self):
         """
         get __binsize of PowertrackApi() 
@@ -164,6 +170,7 @@ class PowertrackApi():
         
         return self.__binsize
     
+
     def __generate_tokens(self) -> None:
         """Generating initial session using login"""
 
@@ -171,7 +178,7 @@ class PowertrackApi():
 
         res = requests.request("POST", self.__auth_url, data=access_token_data, headers=self.__headers)
         res_data = json.loads(res.text)
-        #log(f'res_data is {res_data}')
+        log(f'res_data is {res_data}')
         self.__access_token = res_data['access_token']
 
         self.__headers["Authorization"] = f'Bearer {self.__access_token}'
@@ -303,13 +310,13 @@ class PowertrackApi():
         responses = []
 
         # for timestamps in intervaled_timestamps:
-        log(f'binsize is {self.__binsize}')
+        #log(f'binsize is {self.__binsize}')
         url = f'{self.__base_url}/v2/Data/BinData?'
         url += f'from={start_timestamp}'
         url += f'&to={end_timestamp}'
         url += f'&binSizes={self.__binsize}'
-        url += '&tz=utc' 
-        body = [{ 'hardwareId': hardware_id, 'siteId': site_id, 'fieldName': field_name, 'function': hw_function }]
+        url += '&tz=US/Eastern' 
+        body = [{ 'hardwareId': hardware_id, 'siteId': site_id, 'fieldName': field_name, 'function': hw_function}]
         header = {"Content-Type": "application/json"}
         log(f'powertrack_api.py, _get_data_for_hardware: body is {body}')
         response = self.__use_session_post(url, body, header)

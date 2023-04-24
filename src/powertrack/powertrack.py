@@ -170,51 +170,100 @@ class Powertrack(PowertrackApi):
                 # log(f'binsize is set to {binsize}')
                 if "dataName" not in address:
                     continue
-
-                if address["dataName"] == 'Sun' and re.search(r'\bbpoa\b', weatherstation_name, re.IGNORECASE):
-                    log(f"{weatherstation_id} is BPOA, address is {address['address']}")
-                    bpoa_data = super()._get_data_for_hardware(weatherstation_id, site_id, start_timestamp, end_timestamp, 'Sun','Last')
-                    bpoa.extend(bpoa_data['items'])
-                    log(f'bpoa data is {bpoa}')
-                elif address["dataName"] == 'Sun':
-                    log(f"{weatherstation_id} is POA, address is {address['address']}")
-                    poa_data = super()._get_data_for_hardware(weatherstation_id, site_id, start_timestamp, end_timestamp, 'Sun','Last')
-                    log(f"poa_data from super().get_data_for_hardware poa is {poa_data['items']}")
-                    poa.extend(poa_data['items'])
-                    log(f'poa data is {poa}')
-                elif address["dataName"] == 'Sun2' and re.search(r'\bghi\b', weatherstation_name, re.IGNORECASE):
-                    log(f"{weatherstation_id} contains Sun2, address is {address['address']}")
-                    ghi_data = super()._get_data_for_hardware(weatherstation_id, site_id, start_timestamp, end_timestamp, 'Sun2','Last')
-                    ghi.extend(ghi_data['items'])
-                    log(f'ghi data is {ghi}')
-                elif address["dataName"] == 'WindSpeed':
-                    log(f"{weatherstation_id} contains Windspeed, address is {address['address']}")
-                    log(f"Before windspeed_data: {windspeed}")
-                    windspeed_data = super()._get_data_for_hardware(weatherstation_id, site_id, start_timestamp, end_timestamp,'WindSpeed','Last')
-                    windspeed.extend(windspeed_data['items'])
-                    log(f'windspeed_raw_data is {windspeed_data}')
-                    log(f'after windspeed_data is {windspeed}')
-                elif address["dataName"] == 'TempF':
-                    log(f"{weatherstation_id} contains Tempf, address is {address['address']}")
-                    temperature_data = super()._get_data_for_hardware(weatherstation_id, site_id, start_timestamp, end_timestamp, "TempF",'Last')
-                    log(f"temperature unit is {temperature_data['info'][0]['units']}")
-                    if temperature_data['info'][0]['units'] == 'Fahrenheit':
-                        celcius_data_list = []
-                        for data_entry in temperature_data['items']:
-                            timestamp = data_entry['timestamp']
-                            fahrenheit = data_entry['data'][0]
-                            fahrenheit = float(fahrenheit)
-                            celsius = self.__fahrenheit_to_celsius(fahrenheit)
-                            celcius_data_list.append({'timestamp': timestamp, 'data': [celsius]})
-                        #print(f'celcius list is {celcius_data_list}')
-                        temperature.extend(celcius_data_list)
-                    else:
-                        temperature.extend(temperature_data['items'])
-                    log(f'temperature_raw_data is {temperature_data}')
-                    log(f'temperature_data is {temperature}')
-                else:
-                    log(f"{weatherstation_id} don't contain any of these, it contains {weatherstation_details['registerGroups'][0]['registers']}")
                 
+                binsize = super()._get_binsize()
+                print(f'Before grabbing production, binsize is {binsize}')
+                if binsize == 'BinDay':
+                    log(f'Binsize is Day, changing field names for weatherstation data')
+                    if address["dataName"] == 'Sun' and re.search(r'\bbpoa\b', weatherstation_name, re.IGNORECASE):
+                        log(f"{weatherstation_id} is BPOA, address is {address['address']}")
+                        bpoa_data = super()._get_data_for_hardware(weatherstation_id, site_id, start_timestamp, end_timestamp, 'Sun','Avg')
+                        bpoa.extend(bpoa_data['items'])
+                        log(f'bpoa data is {bpoa}')
+                    elif address["dataName"] == 'Sun':
+                        log(f"{weatherstation_id} is POA, address is {address['address']}")
+                        poa_data = super()._get_data_for_hardware(weatherstation_id, site_id, start_timestamp, end_timestamp, 'Sun','Avg')
+                        log(f"poa_data from super().get_data_for_hardware poa is {poa_data['items']}")
+                        poa.extend(poa_data['items'])
+                        log(f'poa data is {poa}')
+                    elif address["dataName"] == 'Sun2' and re.search(r'\bghi\b', weatherstation_name, re.IGNORECASE):
+                        log(f"{weatherstation_id} contains Sun2, address is {address['address']}")
+                        ghi_data = super()._get_data_for_hardware(weatherstation_id, site_id, start_timestamp, end_timestamp, 'Sun2','Avg')
+                        ghi.extend(ghi_data['items'])
+                        log(f'ghi data is {ghi}')
+                    elif address["dataName"] == 'WindSpeed':
+                        log(f"{weatherstation_id} contains Windspeed, address is {address['address']}")
+                        log(f"Before windspeed_data: {windspeed}")
+                        windspeed_data = super()._get_data_for_hardware(weatherstation_id, site_id, start_timestamp, end_timestamp,'WindSpeed','Avg')
+                        windspeed.extend(windspeed_data['items'])
+                        log(f'windspeed_raw_data is {windspeed_data}')
+                        log(f'after windspeed_data is {windspeed}')
+                    elif address["dataName"] == 'TempF':
+                        log(f"{weatherstation_id} contains Tempf, address is {address['address']}")
+                        temperature_data = super()._get_data_for_hardware(weatherstation_id, site_id, start_timestamp, end_timestamp, "TempF",'Avg')
+                        log(f"temperature unit is {temperature_data['info'][0]['units']}")
+                        if temperature_data['info'][0]['units'] == 'Fahrenheit':
+                            celcius_data_list = []
+                            for data_entry in temperature_data['items']:
+                                timestamp = data_entry['timestamp']
+                                fahrenheit = data_entry['data'][0]
+                                fahrenheit = float(fahrenheit)
+                                celsius = self.__fahrenheit_to_celsius(fahrenheit)
+                                celcius_data_list.append({'timestamp': timestamp, 'data': [celsius]})
+                            #print(f'celcius list is {celcius_data_list}')
+                            temperature.extend(celcius_data_list)
+                        else:
+                            temperature.extend(temperature_data['items'])
+                        log(f'temperature_raw_data is {temperature_data}')
+                        log(f'temperature_data is {temperature}')
+                    else:
+                        log(f"{weatherstation_id} don't contain any of these, it contains {weatherstation_details['registerGroups'][0]['registers']}")
+                    
+                else:
+                    if address["dataName"] == 'Sun' and re.search(r'\bbpoa\b', weatherstation_name, re.IGNORECASE):
+                        log(f"{weatherstation_id} is BPOA, address is {address['address']}")
+                        bpoa_data = super()._get_data_for_hardware(weatherstation_id, site_id, start_timestamp, end_timestamp, 'Sun','Last')
+                        bpoa.extend(bpoa_data['items'])
+                        log(f'bpoa data is {bpoa}')
+                    elif address["dataName"] == 'Sun':
+                        log(f"{weatherstation_id} is POA, address is {address['address']}")
+                        poa_data = super()._get_data_for_hardware(weatherstation_id, site_id, start_timestamp, end_timestamp, 'Sun','Last')
+                        log(f"poa_data from super().get_data_for_hardware poa is {poa_data['items']}")
+                        poa.extend(poa_data['items'])
+                        log(f'poa data is {poa}')
+                    elif address["dataName"] == 'Sun2' and re.search(r'\bghi\b', weatherstation_name, re.IGNORECASE):
+                        log(f"{weatherstation_id} contains Sun2, address is {address['address']}")
+                        ghi_data = super()._get_data_for_hardware(weatherstation_id, site_id, start_timestamp, end_timestamp, 'Sun2','Last')
+                        ghi.extend(ghi_data['items'])
+                        log(f'ghi data is {ghi}')
+                    elif address["dataName"] == 'WindSpeed':
+                        log(f"{weatherstation_id} contains Windspeed, address is {address['address']}")
+                        log(f"Before windspeed_data: {windspeed}")
+                        windspeed_data = super()._get_data_for_hardware(weatherstation_id, site_id, start_timestamp, end_timestamp,'WindSpeed','Last')
+                        windspeed.extend(windspeed_data['items'])
+                        log(f'windspeed_raw_data is {windspeed_data}')
+                        log(f'after windspeed_data is {windspeed}')
+                    elif address["dataName"] == 'TempF':
+                        log(f"{weatherstation_id} contains Tempf, address is {address['address']}")
+                        temperature_data = super()._get_data_for_hardware(weatherstation_id, site_id, start_timestamp, end_timestamp, "TempF",'Last')
+                        log(f"temperature unit is {temperature_data['info'][0]['units']}")
+                        if temperature_data['info'][0]['units'] == 'Fahrenheit':
+                            celcius_data_list = []
+                            for data_entry in temperature_data['items']:
+                                timestamp = data_entry['timestamp']
+                                fahrenheit = data_entry['data'][0]
+                                fahrenheit = float(fahrenheit)
+                                celsius = self.__fahrenheit_to_celsius(fahrenheit)
+                                celcius_data_list.append({'timestamp': timestamp, 'data': [celsius]})
+                            #print(f'celcius list is {celcius_data_list}')
+                            temperature.extend(celcius_data_list)
+                        else:
+                            temperature.extend(temperature_data['items'])
+                        log(f'temperature_raw_data is {temperature_data}')
+                        log(f'temperature_data is {temperature}')
+                    else:
+                        log(f"{weatherstation_id} don't contain any of these, it contains {weatherstation_details['registerGroups'][0]['registers']}")
+                    
             dfs = self.__create_weatherstation_dfs_from_hardware_data(poa,bpoa,ghi,windspeed,temperature)
             weatherstation_hardware_df = self.__merge_hardware_weatherstation_dfs(dfs)
             return weatherstation_hardware_df
@@ -409,7 +458,13 @@ class Powertrack(PowertrackApi):
         for meter in meter_ids:
             meter_details = super()._get_site_hardware_details(meter)
             log(f'meter_detailsa are {meter_details}')
-            meter_production_data = super()._get_data_for_hardware(meter, site_id, start_timestamp, end_timestamp, 'KW','Last')
+            binsize = super()._get_binsize()
+            print(f'Before grabbing production, binsize is {binsize}')
+            if binsize == 'BinDay':
+                log(f'Binsize is Day, Grabbing Sum for production')
+                meter_production_data = super()._get_data_for_hardware(meter, site_id, start_timestamp, end_timestamp, 'KW','Sum')
+            else:
+                meter_production_data = super()._get_data_for_hardware(meter, site_id, start_timestamp, end_timestamp, 'KW','Last')
             log(f'meter_production_data is {meter_production_data}')
             temp_df = pd.json_normalize(meter_production_data, record_path = ['items'])
             temp_df['meter_id'] = meter

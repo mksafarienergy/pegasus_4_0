@@ -88,7 +88,7 @@ class PowertrackApi():
                     log(f'they are {start_timestamp, end_timestamp}')      
                     today_timestamp = get_todays_timestamp()
                     today_datetime = convert_timestamp_to_datetime(self.__end_timestamp)
-                    one_month_ago = today_datetime - relativedelta(months=1)
+                    one_month_ago = today_datetime - relativedelta(months=3)
                     last_3month_timestamp = one_month_ago.strftime("%Y-%m-%dT%H:%M:%S")
                     self.__start_timestamp = last_3month_timestamp
                     self.__end_timestamp = today_timestamp

@@ -1,0 +1,35 @@
+How to Run The Script:
+    Make sure that you have a folder called csvs and another folder called logs in the same directory as main.py. 
+    powertrack.py and powertrack_api.py should be in a folder called powertrack in the same directory as main.py.
+    site.csv should be in the same directory as main.py.
+    After filling out the site.csv (make sure you save the changes), simply go to main.py and run the script. 
+    This will loop over each row in site.csv and set the dataframe to site_data_df.
+    Furthermore, the dataframe will be saved as a csv in the csvs folder, under the name formate "site_data_df_{timestamp of run}_binsize={the binsize you chose}.csv"    
+
+site.csv:
+
+    Summary:
+    This is where you input the site you want to look at.
+    The first row are the column names, input the data right below the columns, on the second row. 
+
+    Parameters:
+    site - this is where you input the siteid
+    start_timestamp - this is where you input the start timestamp of the data. The format is in YYYY-MM-DDTHH:MM:SS For example, 2022-10-11T00:00:00. 
+    end_timestamp - this is where you input the end timestamp of the data. The format is in YYYY-MM-DDTHH:MM:SS For example, 2022-10-22T00:00:00
+    binsize - this is the timeframe of the data. The accepted values are 5min, 15min, or Day. This decides the timeframe of each row. For instance, inputting 5min will make everyrow 5 minutes.
+
+    Restrictions:
+    Note that 5min timeframe has a range restriction of 1 month, 15min has a range restriction of 3months, Day has no restrictions.
+    Going over this restriction will default the timeframe to Day. 
+
+powertrack.py:
+    
+    summary: 
+    This is where all the main functionalities are stored, functions that modify and build the dataframe. 
+    If you need to change anything, please consult Teng Liang at tliang@aspenpower.com
+
+powertrack_api.py:
+
+    summary: 
+    This is where basic functionalities like getting api verification, getting json data is stored.
+    If you need to change anything, please consult Teng Liang at tliang@aspenpower.com

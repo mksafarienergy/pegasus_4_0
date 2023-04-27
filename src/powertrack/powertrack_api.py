@@ -73,7 +73,7 @@ class PowertrackApi():
                 else:
                     self.__start_timestamp = start_timestamp 
                     self.__end_timestamp = end_timestamp
-                hardware_data = self._get_data_for_hardware(hardware_id, site_id, self.__start_timestamp, self.__end_timestamp, 'KWHDel') # type: ignore
+                hardware_data = self._get_data_for_hardware(hardware_id, site_id, self.__start_timestamp, self.__end_timestamp, 'KW') # type: ignore
                 if "error" in hardware_data:
                     log(f'5min timeframe not available for {site_id}, moving on to 15min')
 
@@ -95,7 +95,7 @@ class PowertrackApi():
                 else:
                     self.__start_timestamp = start_timestamp 
                     self.__end_timestamp = end_timestamp
-                hardware_data = self._get_data_for_hardware(hardware_id, site_id, self.__start_timestamp, self.__end_timestamp, 'KWHDel') # type: ignore
+                hardware_data = self._get_data_for_hardware(hardware_id, site_id, self.__start_timestamp, self.__end_timestamp, 'KW') # it was KWHDel before # type: ignore
                 if "error" in hardware_data:
                     log(f'15min timeframe not available for {site_id}, moving on to Day')                    
                     timeframe = 'Day'
@@ -106,7 +106,7 @@ class PowertrackApi():
                 if start_timestamp is not None and end_timestamp is not None:    
                     self.__start_timestamp = start_timestamp
                     self.__end_timestamp = end_timestamp
-                hardware_data = self._get_data_for_hardware(hardware_id, site_id, self.__start_timestamp, self.__end_timestamp, 'KWHDel') # type: ignore
+                hardware_data = self._get_data_for_hardware(hardware_id, site_id, self.__start_timestamp, self.__end_timestamp, 'KW') # type: ignore
                 if "error" in hardware_data:
                     log(f'1Day timeframe not available for {site_id}, throwing error')                    
                     raise Exception('cannot retrieve data for 5min, 15min, or day.')    

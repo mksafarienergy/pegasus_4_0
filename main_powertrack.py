@@ -1,7 +1,5 @@
 import time
-
 import pandas as pd
-
 from proforma import proforma_monthly_dataframe
 from utils import get_time_now
 from src.locus.locus import Locus
@@ -13,13 +11,8 @@ warnings.filterwarnings("ignore")
 if __name__ == '__main__':
     start = time.time()
     set_up_logger()
-
-    # platform = 'locus'
-    platform = 'powertrack' 
-
     run_time = time.time() - start
     proforma_df = pd.read_csv('proforma_df.csv')
-    
     powertrack = Powertrack()
     log(f'Initialized class: {run_time}')
     site_csv = pd.read_csv('site.csv')
